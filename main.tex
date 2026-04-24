@@ -1,0 +1,295 @@
+\documentclass[11pt,a4paper]{article}
+
+% ===== Math & Symbols =====
+\usepackage{amsmath,amssymb,amsthm,amsfonts}
+\usepackage{mathtools}
+\usepackage{mathrsfs}
+\usepackage{bm}
+\usepackage{bbm}
+
+% ===== Cryptography =====
+\usepackage{xstring}
+\usepackage{xparse}
+\usepackage[n,operators,advantage,sets,adversary,landau,probability,notions,logic,ff,mm,primitives,events,complexity,oracles,asymptotics,keys,lambda]{cryptocode}
+
+% ===== Algorithms =====
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% ===== Graphics & Tables =====
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes,fit}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+
+% ===== Typography =====
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{lmodern}
+
+% ===== References & Links =====
+\usepackage[backend=biber,style=alphabetic]{biblatex}
+\addbibresource{references.bib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cleveref}
+
+% ===== Page Layout =====
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+% ===== Theorems =====
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{construction}[theorem]{Construction}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{example}[theorem]{Example}
+
+% ===== Custom Macros =====
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\G}{\mathbb{G}}
+\newcommand{\calA}{\mathcal{A}}
+\newcommand{\calB}{\mathcal{B}}
+\newcommand{\calC}{\mathcal{C}}
+\newcommand{\calO}{\mathcal{O}}
+\newcommand{\eps}{\varepsilon}
+\providecommand{\Adv}{\mathrm{Adv}}
+\providecommand{\negl}{\mathrm{negl}}
+\providecommand{\poly}{\mathrm{poly}}
+
+\providecommand{\FF}{\mathbb{F}}
+\newcommand{\calP}{\mathcal{P}}
+\newcommand{\calV}{\mathcal{V}}
+\newcommand{\calR}{\mathcal{R}}
+\newcommand{\polyrel}{\Phi}
+
+\title{Proving Isogeny Knowledge with VOLEitH}
+\author{Hongrui Cui}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+	We describe how to use VOLEitH to prove knowledge of an isogeny
+	$\phi: E_0 \to E_n$ between two supersingular elliptic curves.
+	The prover commits to intermediate $j$-invariants along the isogeny
+	path and proves that each consecutive pair satisfies the modular
+	polynomial relation $\polyrel_{\ell}(j_{i-1}, j_i) = 0$.
+\end{abstract}
+
+\tableofcontents
+
+% ===================================================================
+\section{Introduction}
+% ===================================================================
+
+Let $E_0$ and $E_n$ be two supersingular elliptic curves over $\F_{p^2}$.
+A prover $\calP$ claims to know an isogeny $\phi: E_0 \to E_n$ of degree
+$\ell^k$. To prove this in zero-knowledge using VOLEitH, we decompose
+the isogeny into $k$ steps of degree $\ell$ and commit to the intermediate
+$j$-invariants. The verifier checks that each consecutive pair satisfies the
+$\ell$-th modular polynomial $\polyrel_{\ell}$.
+
+% ===================================================================
+\section{Preliminaries}
+% ===================================================================
+
+\subsection{Modular Polynomials}
+
+\begin{definition}[Modular Polynomial]
+	For a prime $\ell$, the $\ell$-th modular polynomial
+	$\polyrel_{\ell}(X, Y) \in \Z[X, Y]$ is a symmetric polynomial
+	of degree $\ell + 1$ in each variable, with the property that
+	\[
+		\polyrel_{\ell}(j(E), j(E')) = 0
+		\iff \text{there exists an isogeny } E \to E' \text{ of degree } \ell.
+	\]
+\end{definition}
+
+For a small prime $\ell$, the polynomial $\polyrel_{\ell}$ can be precomputed.
+For example, $\polyrel_2(X, Y)$ has the form
+\begin{equation}\label{eq:modpoly}
+	\polyrel_{\ell}(X, Y) = \sum_{a = 0}^{\ell+1} \sum_{b = 0}^{\ell+1}
+	c_{a,b} \, X^a Y^b,
+	\qquad c_{a,b} \in \Z.
+\end{equation}
+
+\subsection{Isogeny Path}
+
+\begin{definition}[Isogeny Chain]
+	An isogeny $\phi: E_0 \to E_n$ of degree $\ell^k$ can be factored as
+	\[
+		E_0 \xrightarrow{\phi_1} E_1 \xrightarrow{\phi_2} \cdots
+		\xrightarrow{\phi_k} E_k = E_n
+	\]
+	where each $\phi_i: E_{i-1} \to E_i$ is an isogeny of degree $\ell$.
+	Consequently, $\polyrel_{\ell}(j(E_{i-1}), j(E_i)) = 0$ for all
+	$i \in [1, k]$.
+\end{definition}
+
+The prover knows the entire chain, including the intermediate curves
+$E_1, \dots, E_{k-1}$. The verifier only knows $E_0$ and $E_n$.
+
+\subsection{VOLEitH Commitment}
+
+In VOLEitH, a commitment to a value $x \in \F$ is realized through
+a VOLE correlation. The prover samples random vectors $\vec{u}, \vec{v}$,
+the verifier samples a global key $\Delta$, and the correlation
+$\vec{w} = \Delta \cdot \vec{u} + \vec{v}$ is established.
+To open a linear combination of committed values later, the prover
+and verifier engage in an opening phase that reveals the required
+linear relation without exposing individual values.
+
+% ===================================================================
+\section{Protocol}
+% ===================================================================
+
+\subsection{Overview}
+
+The protocol has three phases:
+
+\begin{enumerate}[label=(\roman*)]
+	\item \textbf{Commitment.} $\calP$ computes $j_i = j(E_i)$ for
+		$i \in [1, k-1]$ and commits to each $j_i$ using VOLE.
+	\item \textbf{Modular relation check.} For each $i \in [1, k]$,
+		$\calP$ proves that $\polyrel_{\ell}(j_{i-1}, j_i) = 0$,
+		where $j_0$ and $j_k$ are public.
+	\item \textbf{Consistency.} $\calP$ proves that the $j_i$ values
+		used in consecutive checks are the same committed values.
+\end{enumerate}
+
+\subsection{VOLEitH Commitment to $j$-invariants}
+
+\begin{center}
+\procedureblock{Commitment Phase}{%
+	\textbf{Prover }\calP \< \< \textbf{Verifier }\calV \\[][\hline]
+	\text{Compute } j_1, \dots, j_{k-1} \text{ along the isogeny path}
+		\< \< \\
+	\text{For } i \in [1, k-1]\text{:} \< \< \\
+	\quad \vec{u}_i, \vec{v}_i \sample \F^{\ell}
+		\< \< \\
+	\quad \text{treat } j_i \text{ as part of the VOLE witness}
+		\< \< \\
+	\< \sendmessageright*{\{\vec{u}_i, \vec{v}_i\}_{i=1}^{k-1}} \< \\
+	\< \< \Delta \sample \F \\
+	\< \< \text{For } i \in [1, k-1]\text{:} \\
+	\< \< \quad \vec{w}_i \gets \Delta \cdot \vec{u}_i + \vec{v}_i \\
+	\< \sendmessageleft*{\Delta} \< \\
+	\\[-0.3\baselineskip]
+	\text{VOLE correlations established for all } k-1 \text{ commitments}
+		\< \<
+}
+\end{center}
+
+\subsection{Proving the Modular Polynomial Relation}
+
+For each step $i \in [1, k]$, the prover must show that
+$\polyrel_{\ell}(j_{i-1}, j_i) = 0$.
+Recall from~\cref{eq:modpoly} that $\polyrel_{\ell}$ is a bilinear sum
+of monomials $X^a Y^b$ with known coefficients $c_{a,b}$.
+
+The prover commits to the powers $j_{i-1}^a$ and $j_i^b$ for all required
+exponents, then uses the linear homomorphism of VOLE to compute
+\[
+	s_i = \sum_{a,b} c_{a,b} \cdot (j_{i-1}^a \cdot j_i^b)
+\]
+and opens $s_i$ to the verifier, who checks $s_i = 0$.
+
+\begin{center}
+\procedureblock{Modular Relation Check (Step $i$)}{%
+	\textbf{Prover }\calP \< \< \textbf{Verifier }\calV \\[][\hline]
+	\text{Input: } j_{i-1}, j_i \text{ (committed or public)}
+		\< \< \text{Input: public } j_0, j_k \\[][\hline]
+	\text{For each }(a, b) \in [0, \ell+1]^2 \text{ with } c_{a,b} \neq 0\text{:}
+		\< \< \\
+	\quad \text{compute } u_{a,b} = j_{i-1}^a \cdot j_i^b
+		\< \< \\
+	\quad \text{commit to } u_{a,b} \text{ via VOLE}
+		\< \< \\
+	s_i \gets \sum_{a,b} c_{a,b} \cdot u_{a,b}
+		\< \< \\
+	\< \sendmessageright*{s_i} \< \\
+	\< \< \text{Check } s_i = 0 \\
+	\< \< \text{If all } k \text{ steps pass, accept}
+}
+\end{center}
+
+\subsection{Full Protocol}
+
+\begin{center}
+\procedureblock{VOLEitH Proof of Isogeny Knowledge}{%
+	\calP(E_0, E_n, \phi) \< \< \calV(E_0, E_n) \\[][\hline]
+	\text{Decompose } \phi = \phi_k \circ \cdots \circ \phi_1
+		\< \< \\
+	\text{Compute } j_0, j_1, \dots, j_k \text{ for all intermediate curves}
+		\< \< \\
+	\text{Commit to } j_1, \dots, j_{k-1} \text{ via VOLE}
+		\< \sendmessageright*{\text{commitments}} \< \\
+	\< \< \Delta \sample \F \\
+	\< \sendmessageleft*{\Delta} \< \\
+	\text{For } i = 1 \text{ to } k\text{:} \< \< \\
+	\quad \text{prove } \polyrel_{\ell}(j_{i-1}, j_i) = 0
+		\< \sendmessageright*{\text{proof for step } i} \< \\
+	\quad \>
+		\< \sendmessageleft*{\text{accept/reject}} \< \\
+	\\[-0.3\baselineskip]
+	\calV \text{ accepts iff all } k \text{ relation checks pass}
+		\< \<
+}
+\end{center}
+
+% ===================================================================
+\section{Security Analysis}
+% ===================================================================
+
+\begin{theorem}[Completeness]
+	If $\calP$ knows a valid isogeny $\phi: E_0 \to E_n$, then the honest
+	verifier accepts.
+\end{theorem}
+
+\begin{proof}
+	By definition of the modular polynomial, each consecutive pair
+	$(j_{i-1}, j_i)$ along the decomposed isogeny path satisfies
+	$\polyrel_{\ell}(j_{i-1}, j_i) = 0$. Since VOLEitH commitments are
+	computationally binding and the linear combination $s_i$ is opened
+	correctly, all checks pass.
+\end{proof}
+
+\begin{theorem}[Soundness]
+	If $E_0$ and $E_n$ are not connected by an isogeny of degree $\ell^k$,
+	then a malicious prover $\calP^*$ cannot make $\calV$ accept except with
+	negligible probability.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+	If the verifier accepts, then by the binding property of VOLE
+	commitments and the soundness of the linear opening, there exist
+	values $j_1, \dots, j_{k-1}$ such that
+	$\polyrel_{\ell}(j_{i-1}, j_i) = 0$ for all $i$.
+	By the property of modular polynomials, this implies the existence
+	of $\ell$-isogenies between consecutive curves, and hence a composite
+	isogeny $E_0 \to E_n$ of degree $\ell^k$.
+\end{proof}
+
+\begin{remark}
+	Knowledge soundness follows from the extractability of VOLEitH
+	commitments: an extractor can recover $j_1, \dots, j_{k-1}$ by
+	rewinding the prover and solving the resulting linear system.
+\end{remark}
+
+\printbibliography
+\end{document}
