@@ -1,7 +1,7 @@
 MAIN    = main
 LATEX   = pdflatex
 BIBER   = biber
-FLAGS   = -interaction=nonstopmode -halt-on-error -file-line-error
+FLAGS   = -interaction=nonstopmode -halt-on-error -file-line-error -synctex=1
 
 .PHONY: all clean distclean view watch
 

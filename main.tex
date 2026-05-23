@@ -29,6 +29,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{microtype}
 \usepackage{lmodern}
+\usepackage{stmaryrd}
 
 % ===== References & Links =====
 \usepackage[backend=biber,style=alphabetic]{biblatex}
@@ -64,17 +65,20 @@
 \newcommand{\calA}{\mathcal{A}}
 \newcommand{\calB}{\mathcal{B}}
 \newcommand{\calC}{\mathcal{C}}
+\newcommand{\calD}{\mathcal{D}}
 \newcommand{\calO}{\mathcal{O}}
 \newcommand{\eps}{\varepsilon}
 \providecommand{\Adv}{\mathrm{Adv}}
 \providecommand{\negl}{\mathrm{negl}}
 \providecommand{\poly}{\mathrm{poly}}
+\newcommand{\itmac}[1]{\llbracket {#1} \rrbracket}
 
 \providecommand{\FF}{\mathbb{F}}
 \newcommand{\calP}{\mathcal{P}}
 \newcommand{\calV}{\mathcal{V}}
 \newcommand{\calR}{\mathcal{R}}
 \newcommand{\polyrel}{\Phi}
+\newcommand{\mat}[1]{\mathbf{#1}}
 
 \title{Proving Isogeny Knowledge with VOLEitH}
 \author{Hongrui Cui}
@@ -138,119 +142,337 @@ For example, $\polyrel_2(X, Y)$ has the form
 	\]
 	where each $\phi_i: E_{i-1} \to E_i$ is an isogeny of degree $\ell$.
 	Consequently, $\polyrel_{\ell}(j(E_{i-1}), j(E_i)) = 0$ for all
-	$i \in [1, k]$.
+	$i \in [1, n]$.
 \end{definition}
 
 The prover knows the entire chain, including the intermediate curves
-$E_1, \dots, E_{k-1}$. The verifier only knows $E_0$ and $E_n$.
+$E_1, \dots, E_{n-1}$. The verifier only knows $E_0$ and $E_n$.
 
-\subsection{VOLEitH Commitment}
+\subsection{Batch All-but-one Vector Commitment}
 
-In VOLEitH, a commitment to a value $x \in \F$ is realized through
-a VOLE correlation. The prover samples random vectors $\vec{u}, \vec{v}$,
-the verifier samples a global key $\Delta$, and the correlation
-$\vec{w} = \Delta \cdot \vec{u} + \vec{v}$ is established.
-To open a linear combination of committed values later, the prover
-and verifier engage in an opening phase that reveals the required
-linear relation without exposing individual values.
+A Batch All-but-one Vector Commitment (BAVC) allows a prover to commit
+to $\tau$ vectors of seeds, and later open all but one position per vector.
+We work over the base field $\F_{p^2}$.
+The scheme is parameterized by the number of vectors $\tau$, the vector
+length $N = 2^k$, and a leaf commitment function
+$\mathsf{LeafCommit}: \{0,1\}^{\secpar} \to \{0,1\}^{2\secpar}$.
+
+The BAVC provides three algorithms~\cite{faestv2}:
+
+\begin{description}[leftmargin=0.9em, labelsep=0.5em]
+	\item[$\mathsf{BAVC.Commit}(r, iv) \to (\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\})$:]
+		On input a random root seed $r \in \{0,1\}^\lambda$ and initialization
+		vector $iv$, builds a GGM tree with $L = \tau \cdot N$ leaves.
+		For each leaf position $(i,j) \in [0,\tau) \times [0,N)$, computes
+		$(\mathsf{sd}_{i,j}, \mathsf{com}_{i,j}) \gets \mathsf{LeafCommit}(k_\alpha, iv, \cdot)$
+		where $k_\alpha$ is the leaf seed.
+		Hashes the per-vector commitments $\{\mathsf{com}_{i,j}\}_j$ into
+		$h_i$, then outputs the root commitment $\mathsf{com} \gets H(h_0 \| \cdots \| h_{\tau-1})$
+		together with full decommitment information $\mathsf{decom}$ and all
+		leaf seeds $\{\mathsf{sd}_{i,j}\}$.
+
+	\item[$\mathsf{BAVC.Open}(\mathsf{decom}, I) \to \mathsf{decom}_I$ or $\bot$:]
+		Given an index vector $I = (\Delta_0, \dots, \Delta_{\tau-1})$ specifying
+		which leaf to hide in each vector, outputs a partial opening $\mathsf{decom}_I$
+		that contains the unrevealed leaf commitments and exactly the GGM sibling
+		seeds needed to reconstruct all other leaves.
+		Aborts with $\bot$ if the required opening exceeds the threshold $T_{\sf open}$.
+
+	\item[$\mathsf{BAVC.Reconstruct}(\mathsf{decom}_I, I, iv) \to (\mathsf{com}, \{\mathsf{sd}_{i,j}\}_{j \neq \Delta_i})$:]
+		Reconstructs every leaf except the hidden ones.
+		Walks up the GGM tree from the revealed sibling seeds to recover missing
+		internal seeds, re-computes leaf commitments, and outputs the recomputed
+		commitment $\mathsf{com}$ together with all opened leaf seeds.
+\end{description}
+
+BAVC satisfies correctness with aborts:
+if $\mathsf{Open}$ returns $\mathsf{decom}_I \neq \bot$, then
+$\mathsf{Reconstruct}$ recovers the original $\mathsf{com}$ and the correct
+seeds $\mathsf{sd}_{i,j}$ for all $j \neq \Delta_i$.
+
+\subsection{Information-Theoretic Message Authentication Code}
+
+We adopt the generalized Information-Theoretic Message Authentication Code
+(IT-MAC) definition of~\cite{EC:ABBS25}, adapted to our setting over~$\F_{p^2}$.
+
+\begin{definition}\label{def:it-mac}
+	For $d \in \Z$, a degree-$d$ IT-MAC for $a \in \F_{p^2}$ is
+	$\itmac{a}^{d} := (p_a(x), k_a, \Delta)$,
+	where a prover $\calP$ holds a polynomial ${p}_{a}(x) \in \F_{p^2}[x]$
+	with $\deg(p_a) = d$ and leading coefficient $a$;
+	while a verifier $\calV$ holds the evaluation
+	${k}_a = {p}_{a}(\Delta)$, for a global key
+	$\Delta \in \F_{p^2}$ unknown to $\calP$.
+	The degree superscript $d$ is omitted when clear from context.
+\end{definition}
+
+Let $\itmac{a}^{d_a}$ and $\itmac{b}^{d_b}$ be two IT-MACs,
+with corresponding polynomials $p_a(x), p_b(x)$ and evaluations $k_a, k_b$,
+and assume w.l.o.g., $d_a \geq d_b$.
+IT-MAC supports the following local homomorphic operations:
+\begin{description}[leftmargin=0.9em, labelsep=0.5em]
+	\item[Addition.] To compute $\itmac{a + b}^{d_a} = \itmac{a}^{d_a} + \itmac{b}^{d_b}$,
+		$\calP$ computes $p_{a+b}(x) = p_a(x) + p_b(x) \cdot x^{d_a - d_b}$,
+		while $\calV$ computes $k_{a+b} = k_a + k_b \cdot \Delta^{d_a - d_b}$.
+
+	\item[Multiplication.] To compute $\itmac{ab}^{d_a \cdot d_b} = \itmac{a}^{d_a} \cdot \itmac{b}^{d_b}$,
+		$\calP$ computes $p_{ab}(x) = p_a(x) \cdot p_b(x)$,
+		while $\calV$ computes $k_{ab} = k_a \cdot k_b$.
+
+	\item[Constants.] For any $c \in \F_{p^2}$ and $d \in \Z$,
+		define $\itmac{c}^{d}$ by $p_c(x) = c x^d$ and $k_c = c \Delta^d$.
+		Combining this with the above operations, constant addition and
+		scalar multiplication preserve degree.
+		Subtraction follows as $\itmac{a} - \itmac{b} := \itmac{a} + \itmac{-1}^{1} \cdot \itmac{b}$.
+		Moreover, to de-randomize a random IT-MAC $\itmac{r}^{1}$
+		(where $r \sample \F_{p^2}$) into a target value $x \in \F_{p^2}$,
+		$\calP$ publishes $\delta := x - r$, and both parties compute
+		$\itmac{x}^{1} := \itmac{r}^{1} + \itmac{\delta}^{1}$.
+\end{description}
+
+IT-MAC satisfies the following hiding and binding properties:
+\begin{description}[leftmargin=0.9em, labelsep=0.5em]
+	\item[Hiding.] Random degree-1 IT-MACs are typically generated from VOLE protocols
+		(e.g., the one in \Cref{sec:voleith}), which inherently ensure
+		that the committed value $a$ is independent of $\calV$'s
+		authentication material. Thus, hiding is guaranteed.
+
+	\item[Binding.] To open a committed value $a$, $\calP$ sends its
+		(purported) associated polynomial $\tilde{p}_{a'}(x)$ to $\calV$,
+		who checks whether $\tilde{p}_{a'}(\Delta) = k_a$.
+		Any attempt by $\calP$ to open a different value $a' \neq a$
+		while passing this check implies
+		$\tilde{p}_{a'}(\Delta) = p_a(\Delta)$.
+		Assuming $\Delta \sample \F_{p^2}$, the probability of such a
+		collision is at most $\frac{\deg(p_a)}{p^2}$.
+\end{description}
+
 
 % ===================================================================
-\section{Protocol}
+\section{VOLE-in-the-Head over Large Field}
+\label{sec:voleith}
 % ===================================================================
 
-\subsection{Overview}
+The VOLEitH framework has two variants, the 7-round variant specialized
+for proving relations over small fields, and a 9-round variant for larger
+fields~\cite{baumPubliclyVerifiableZeroKnowledge2023}.
+The first variant is (somewhat) widely used in post-quantum digital
+signature schemes, e.g., FAEST~v1/2, ReSolveD, and SDitH~v2 all use VOLEitH
+over $\FF_{2}$.
+In this write-up we focus on the 9-round variant.
 
-The protocol has three phases:
+\subsection{Parameters and Setup}
 
-\begin{enumerate}[label=(\roman*)]
-	\item \textbf{Commitment.} $\calP$ computes $j_i = j(E_i)$ for
-		$i \in [1, k-1]$ and commits to each $j_i$ using VOLE.
-	\item \textbf{Modular relation check.} For each $i \in [1, k]$,
-		$\calP$ proves that $\polyrel_{\ell}(j_{i-1}, j_i) = 0$,
-		where $j_0$ and $j_k$ are public.
-	\item \textbf{Consistency.} $\calP$ proves that the $j_i$ values
-		used in consecutive checks are the same committed values.
-\end{enumerate}
+The prover $\calP$ holds a witness $\vec{w} \in \F^{\ell_{\sf wit}}$ that satisfies
+$f_i(\vec{w}) = 0$ for all $i \in [t]$.
+The verifier $\calV$ knows the constraints $\{ f_i \}_{i \in [t]}$ but not the witness.
 
-\subsection{VOLEitH Commitment to $j$-invariants}
+For $n \in \mathbb{N}^+$, we define $[n] := \{ 0, 1, ..., n-1 \}$.
+
+We define $\ell_{\sf vole} := \lceil \frac{\ell_{\sf wit} + 1}{k_{\calC}} \rceil$.
+$\calP$ arranges the witness $\vec{w}$ into a $\ell_{\sf vole} \times k_{\calC}$ matrix over $\F$ as $\mat{W}$.
+The internal QuickSilver proof system works on $\ell_{\sf vole} \cdot k_{\calC}$ random IT-MAC relations.
+Define $\hat{\ell}_{\sf vole} := 2 \cdot \ell_{\sf vole} + 1$.
+The VOLEitH framework generates $\hat{\ell}_{\sf vole}$ subspace VOLE correlations over $\F$ and we sacrifice one to check consistency.
+
+
+
+The protocol is parameterized by:
+\begin{itemize}
+	\item A security parameter $\secpar$ and a field $\F = \F_{p^2}$.
+	\item A pseudorandom generator $\mathsf{PRG}: \{0,1\}^{\secpar} \to \F^{\hat{\ell}_{\sf vole}}$.
+	\item A number $\tau = n_C$ of parallel all-but-one VOLE instances and
+		a leaf count $N = 2^k$ per instance.
+	\item A systematic $[n_{\calC}, k_{\calC}, d_{\calC}]$-linear error correction code
+		$\calC \subseteq \F^{n_C}$, with encoding algorithm
+		$\mathsf{Enc}_{\calC}$.
+	\item A small subset of $\F$
+		$\calD = \{\alpha_0, \dots, \alpha_{N-1}\} \subset \F$
+		of size $N = 2^k$, for converting all-but-one vector commitment into VOLE correlations.
+	\item A set of degree-2 constraints $f_1, \dots, f_t$ over $\F$ to be proven. For each $i \in [1, t]$, the witness $\vec{w}$ should satisfy that $f_i (\vec{w}) = 0$.
+\end{itemize}
+
+
+
+
+\subsection{The 9-Round Protocol}
+
+The public-coin protocol proceeds in nine rounds.
+
+\begin{figure}[h]
+	\centering
+	\begin{tabular}{p{0.4\linewidth}p{0.2\linewidth}p{0.3\linewidth}}
+		$\vec{r} \sample \{ 0,1 \}^{\secpar}$ & & \\
+		$(\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\}) \gets \mathsf{BAVC.Com}(\vec{r})$ & & \\
+	\end{tabular}
+	\procedureblock{VOLEitH 9-Round Protocol}{
+		\calP(\vec{w}) \< \< \calV(\{f_i\}_{i=1}^{t}) \\[][\hline]
+		\vec{r} \sample \{ 0,1 \}^{\secpar} \< \< \\
+		(\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\})
+		\gets \mathsf{BAVC.Commit}(\vec{r})
+		\< \< \\
+		\forall i \in [\tau], \tilde{\vec{u}_{i}} := \sum_{j \in [N]} \mathsf{PRG}(\mathsf{sd}_{i,j})
+		\< \< \\
+	}
+
+	\caption{The 9-round VOLEitH Protocol.}
+	\label{fig:9-round-voleith-1}
+\end{figure}
+
+
+
+
 
 \begin{center}
-\procedureblock{Commitment Phase}{%
-	\textbf{Prover }\calP \< \< \textbf{Verifier }\calV \\[][\hline]
-	\text{Compute } j_1, \dots, j_{k-1} \text{ along the isogeny path}
+\procedureblock[]{VOLEitH 9-Round Protocol}{%
+	\calP(\text{witness } \mat{W}) \< \< \calV(\{f_i\}_{i=1}^{t}) \\[][\hline]
+	r \sample \{0,1\}^{\secpar},\; iv \sample \{0,1\}^{128}
 		\< \< \\
-	\text{For } i \in [1, k-1]\text{:} \< \< \\
-	\quad \vec{u}_i, \vec{v}_i \sample \F^{\ell}
+	(\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{a,j}\})
+		\gets \mathsf{BAVC.Commit}(r, iv)
 		\< \< \\
-	\quad \text{treat } j_i \text{ as part of the VOLE witness}
+	\text{For each code coordinate } a \in [n_C]\text{:} \< \< \\
+	\quad (\widetilde{\vec{u}}_a,\widetilde{\vec{v}}_a)
+		\gets \mathsf{SS.Sum}_{\calD}
+		(\{\mathsf{sd}_{a,j}\}_{\alpha_j\in\calD})
 		\< \< \\
-	\< \sendmessageright*{\{\vec{u}_i, \vec{v}_i\}_{i=1}^{k-1}} \< \\
-	\< \< \Delta \sample \F \\
-	\< \< \text{For } i \in [1, k-1]\text{:} \\
-	\< \< \quad \vec{w}_i \gets \Delta \cdot \vec{u}_i + \vec{v}_i \\
-	\< \sendmessageleft*{\Delta} \< \\
-	\\[-0.3\baselineskip]
-	\text{VOLE correlations established for all } k-1 \text{ commitments}
-		\< \<
+	\widetilde{\mat{U}} \gets
+		[\widetilde{\vec{u}}_1|\cdots|\widetilde{\vec{u}}_{n_C}],\quad
+		\mat{V} \gets
+		[\widetilde{\vec{v}}_1|\cdots|\widetilde{\vec{v}}_{n_C}]
+		\< \< \\
+	\mat{U} \gets \widetilde{\mat{U}}[:,1..k_C],\quad
+		\mathsf{aux}_{\calC}
+		\gets \mathsf{Enc}_{\calC}(\mat{U})-\widetilde{\mat{U}}
+		\< \< \\
+	\mat{U}=\binom{\mat{U}_1}{\mat{R}},\;
+		\mat{V}=\binom{\mat{V}_1}{\mat{V}_2}
+		\quad(\ell+1\text{ rows each}) \< \< \\
+	\mat{D} \gets
+		\mat{W} - \mat{U}_1[1..\ell]
+		\< \< \\
+	\< \sendmessageright*{iv,\; \mathsf{com},\; \mathsf{aux}_{\calC},\; \mat{D}} \< \\[-0.2\baselineskip]
+	\chi_1,\dots,\chi_t \gets
+		\mathsf{RO}_{\chi}(\mathsf{tr})
+		\< \< \\
+	\text{For } i \in [t]\text{, compute coefficients } \mat{A}_{i,0}, \mat{A}_{i,1} \text{ of} \< \< \\
+	\quad g_i(Y) =
+		\sum_{h=0}^{2} f_{i,h}(\vec{r}+\vec{w}Y)Y^{2-h}
+		\< \< \\
+	\mathsf{eb} \gets
+		\sum_{i \in [t]}\chi_i\mat{A}_{i,0}+\vec{r}_{\ell+1}
+		\< \< \\
+	\mathsf{ea} \gets
+		\sum_{i \in [t]}\chi_i\mat{A}_{i,1}+\vec{u}_{\ell+1}
+		\< \< \\
+	\< \sendmessageright*{\mathsf{eb},\; \mathsf{ea}} \< \\[-0.2\baselineskip]
+	\Delta' \gets \mathsf{RO}_{\Delta'}(\mathsf{tr})
+		\< \< \\
+	\mat{S} \gets \mat{R} + \mat{U}_1 \cdot \Delta'
+		\< \< \\
+	\< \sendmessageright*{\mat{S}} \< \\[-0.2\baselineskip]
+	\vec{\eta} \gets \mathsf{RO}_{\eta}(\mathsf{tr})
+		\< \< \\
+	\mathsf{ev} \gets
+		\vec{\eta}^{\top}(\mat{V}_2+\mat{V}_1\cdot\Delta')
+		\< \< \\
+	\< \sendmessageright*{\mathsf{ev}} \< \\[-0.2\baselineskip]
+	\vec{\delta}=(\delta_1,\dots,\delta_{n_C})
+		\gets \mathsf{RO}_{\Delta}(\mathsf{tr}; [N]^{n_C})
+		\< \< \\
+	\vec{\Delta} \gets (\alpha_{\delta_1},\dots,\alpha_{\delta_{n_C}})
+		\< \< \\
+	\mathsf{decom}_{\vec{\delta}} \gets
+		\mathsf{BAVC.Open}(\mathsf{decom}, \vec{\delta})
+		\< \< \\
+	\< \sendmessageright*{\mathsf{decom}_{\vec{\delta}}} \< \\
+	\pclb\pcintertext[center]{\textbf{Verification:}}\\
+	\< \<
+	(\mathsf{com}', \{\mathsf{sd}_{a,j}\}_{j \neq \delta_a})
+		\gets \mathsf{BAVC.Reconstruct}(\mathsf{decom}_{\vec{\delta}}, \vec{\delta}, iv) \\
+	\< \<
+	\text{For each } a \in [n_C]\text{: } \\
+	\< \<
+	\quad \widetilde{\vec{q}}_a \gets
+		\mathsf{SS.Open}_{\calD}
+		(\{\mathsf{sd}_{a,j}\}_{j\neq\delta_a}, \Delta_a) \\
+	\< \<
+	\widetilde{\mat{Q}} \gets
+		[\widetilde{\vec{q}}_1|\cdots|\widetilde{\vec{q}}_{n_C}] \\
+	\< \<
+	\mat{Q} \gets
+		\widetilde{\mat{Q}}+\mathsf{aux}_{\calC}\operatorname{diag}(\vec{\Delta}) \\
+	\< \<
+	\mat{Q}=\binom{\mat{Q}_1}{\mat{Q}_2},\quad
+	\mat{S}' \gets \mat{S}+
+		\binom{\mat{D}}{0}\cdot\Delta' \\
+	\< \<
+	\text{For } i\in[t]\text{, compute }
+	c_i(Y)=\sum_{h=0}^{2}
+		f_{i,h}(\vec{s}'_{1..\ell})Y^{2-h} \\
+	\< \<
+	\mathsf{es} \gets
+		\sum_{i\in[t]}\chi_i c_i(\Delta')+\vec{s}'_{\ell+1} \\
+	\< \<
+	\text{Check } \mathsf{com}'=\mathsf{com}
+		\text{ and } \mathsf{es}=\mathsf{eb}+\mathsf{ea}\cdot\Delta' \\
+	\< \<
+	\mat{T} \gets \mathsf{ECC.Encode}_{\calC}(\mat{S}) \\
+	\< \<
+	\mat{L} \gets \vec{\eta}^{\top}(\mat{Q}_2+\mat{Q}_1\cdot\Delta') \\
+	\< \<
+	\mat{R}_{\Delta} \gets
+		\mathsf{ev}+\vec{\eta}^{\top}\mat{T}\operatorname{diag}(\vec{\Delta}) \\
+	\< \<
+	\text{Check } \mat{L}=\mat{R}_{\Delta} \\
+	\< \< \text{Accept iff all checks pass}
 }
 \end{center}
 
-\subsection{Proving the Modular Polynomial Relation}
+\subsection{Round-by-Round Explanation}
 
-For each step $i \in [1, k]$, the prover must show that
-$\polyrel_{\ell}(j_{i-1}, j_i) = 0$.
-Recall from~\cref{eq:modpoly} that $\polyrel_{\ell}$ is a bilinear sum
-of monomials $X^a Y^b$ with known coefficients $c_{a,b}$.
+\begin{description}[leftmargin=0.9em, labelsep=0.5em]
+	\item[Commitment and subspace VOLE setup.]
+		The prover commits to the $\tau=n_C$ all-but-one seed vectors with
+		$\mathsf{BAVC.Commit}$.  Each vector is converted, via the
+		SoftSpokenOT summation over $\calD$, into one raw coordinate of a
+		VOLE transcript.  The prover takes the first $k_C$ raw coordinates
+		as $\mat{U}$ and sends
+		$\mathsf{aux}_{\calC}=\mathsf{Enc}_{\calC}(\mat{U})-\widetilde{\mat{U}}$
+		so that the verifier can correct the opened raw VOLE values into a
+		Reed--Solomon codeword.
 
-The prover commits to the powers $j_{i-1}^a$ and $j_i^b$ for all required
-exponents, then uses the linear homomorphism of VOLE to compute
-\[
-	s_i = \sum_{a,b} c_{a,b} \cdot (j_{i-1}^a \cdot j_i^b)
-\]
-and opens $s_i$ to the verifier, who checks $s_i = 0$.
+	\item[Constraint batching.]
+		The random oracle challenge $\chi$ batches the degree-2 constraints.
+		The prover sends the masked QuickSilver-style coefficients
+		$\mathsf{eb}$ and $\mathsf{ea}$.
 
-\begin{center}
-\procedureblock{Modular Relation Check (Step $i$)}{%
-	\textbf{Prover }\calP \< \< \textbf{Verifier }\calV \\[][\hline]
-	\text{Input: } j_{i-1}, j_i \text{ (committed or public)}
-		\< \< \text{Input: public } j_0, j_k \\[][\hline]
-	\text{For each }(a, b) \in [0, \ell+1]^2 \text{ with } c_{a,b} \neq 0\text{:}
-		\< \< \\
-	\quad \text{compute } u_{a,b} = j_{i-1}^a \cdot j_i^b
-		\< \< \\
-	\quad \text{commit to } u_{a,b} \text{ via VOLE}
-		\< \< \\
-	s_i \gets \sum_{a,b} c_{a,b} \cdot u_{a,b}
-		\< \< \\
-	\< \sendmessageright*{s_i} \< \\
-	\< \< \text{Check } s_i = 0 \\
-	\< \< \text{If all } k \text{ steps pass, accept}
-}
-\end{center}
+	\item[Code-switch opening.]
+		The random oracle challenge $\Delta'$ asks the prover to open
+		$\mat{S}=\mat{R}+\mat{U}_1\Delta'$.  The additional challenge
+		$\vec{\eta}$ compresses the verification of this opening to the
+		single value $\mathsf{ev}$.
 
-\subsection{Full Protocol}
+	\item[BAVC opening and verification.]
+		The final challenge first selects indices
+		$\vec{\delta}\in[N]^{n_C}$ and hence field points
+		$\vec{\Delta}\in\calD^{n_C}$.  The verifier reconstructs all opened
+		seeds, recomputes the raw SoftSpokenOT openings $\widetilde{\mat{Q}}$,
+		corrects them as
+		$\mat{Q}=\widetilde{\mat{Q}}+\mathsf{aux}_{\calC}\operatorname{diag}(\vec{\Delta})$,
+		and checks both the batched constraint equation and the subspace-VOLE
+		consistency equation.
+\end{description}
 
-\begin{center}
-\procedureblock{VOLEitH Proof of Isogeny Knowledge}{%
-	\calP(E_0, E_n, \phi) \< \< \calV(E_0, E_n) \\[][\hline]
-	\text{Decompose } \phi = \phi_k \circ \cdots \circ \phi_1
-		\< \< \\
-	\text{Compute } j_0, j_1, \dots, j_k \text{ for all intermediate curves}
-		\< \< \\
-	\text{Commit to } j_1, \dots, j_{k-1} \text{ via VOLE}
-		\< \sendmessageright*{\text{commitments}} \< \\
-	\< \< \Delta \sample \F \\
-	\< \sendmessageleft*{\Delta} \< \\
-	\text{For } i = 1 \text{ to } k\text{:} \< \< \\
-	\quad \text{prove } \polyrel_{\ell}(j_{i-1}, j_i) = 0
-		\< \sendmessageright*{\text{proof for step } i} \< \\
-	\quad \>
-		\< \sendmessageleft*{\text{accept/reject}} \< \\
-	\\[-0.3\baselineskip]
-	\calV \text{ accepts iff all } k \text{ relation checks pass}
-		\< \<
-}
-\end{center}
+% ===================================================================
+\section{Proving Isogeny Path Knowledge}
+% ===================================================================
+
+%% TODO: Instantiate the 9-round VOLEitH framework for the isogeny path problem.
+%% The witness is the chain of intermediate j-invariants j_1, ..., j_{k-1}.
+%% The degree-2 constraints are the modular polynomial relations 
+%% \Phi_{\ell}(j_{i-1}, j_i) = 0 for each step i \in [1, k].
+
 
 % ===================================================================
 \section{Security Analysis}
