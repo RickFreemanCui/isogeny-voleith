@@ -29,6 +29,7 @@ Follows the style from `../SDitH-v2/MyNotes/`:
 - Content sections separated by `% ===============================================================`
 - Theorems: theorem, lemma, proposition, corollary (plain); definition, construction, assumption (definition style); remark, example (remark style). All numbered within `[section]` and sharing the `theorem` counter.
 - Section labels use `\label{sec:...}`, equation labels `\label{eq:...}`, definition labels `\label{def:...}`.
+- Reference with `\Cref{...}` (capitalized, from `cleveref`) — e.g., `\Cref{sec:voleith}`.
 
 ## Cryptocode protocols
 
@@ -40,19 +41,24 @@ Protocols use `\procedureblock{Title}{...}` (NOT a `protocol` environment):
 - `\sendmessageleft*{msg}` — simple message arrow to the left
 - `\\[spacing][\hline]` — line break with optional spacing and horizontal rule
 - `\\[-0.3\baselineskip]` — tighten spacing between protocol rows
+- `\msgrightarrow{...}`, `\msgleftarrow{...}` — message arrows in protocols (wraps `\xrightarrow`/`\xleftarrow` with `\textstyle` for readable size)
 
 ## Key macros
 
 | Command | Definition | Note |
 |---------|-----------|------|
-| `\F`, `\FF` | `\mathbb{F}` | FF via `\providecommand` (cryptocode ff library defines it) |
+| `\F`, `\FF` | `\mathbb{F}` | `\F` via `\newcommand`; `\FF` via `\providecommand` (cryptocode `ff` library pre-defines `\FF`) |
 | `\Z`, `\N`, `\R`, `\C`, `\G` | `\mathbb{Z}`, etc. | |
 | `\calA`, `\calB`, `\calC`, `\calO` | `\mathcal{A}`, etc. | |
 | `\calP`, `\calV`, `\calR` | Prover, Verifier, Relation | |
+| `\calD` | `\mathcal{D}` | Challenge subset of $\F$ |
 | `\eps` | `\varepsilon` | |
 | `\Adv`, `\negl`, `\poly` | `\mathrm{Adv}`, etc. | `\providecommand` (already defined by cryptocode) |
 | `\itmac{a}^{d}` | `\llbracket a \rrbracket` | IT-MAC notation (uses stmaryrd) |
+| `\itmacP{#1}`, `\itmacV{#1}` | `\llbracket #1 \rrbracket_{\calP}`, etc. | Prover/verifier IT-MAC views; superscript added manually |
 | `\polyrel` | `\Phi` | Modular polynomial |
+| `\mat{#1}` | `\mathbf{#1}` | Matrix notation |
+| `\msgrightarrow{#1}`, `\msgleftarrow{#1}` | `\xrightarrow{\textstyle#1}`, etc. | Protocol message arrows (full-size label) |
 | `\sample` | `←$` | Sampling (provided by cryptocode) |
 | `\secpar` | `n` | Security parameter (cryptocode `n` option) |
 
@@ -71,3 +77,9 @@ Biblatex with `style=alphabetic`, `backend=biber`. Most entries use `@techreport
 - Security parameter is `\secpar` (= n)
 - i-th component accessed via subscript: `j_i`, `\vec{u}_i`
 - Protocol phases numbered with `(i)`, `(ii)`, `(iii)` using `enumitem` `[label=(\roman*)]`
+- Matrix/vector notation: vectors use `\vec{...}` (redefined to bold `\mathbf`), matrices use `\mat{...}` (also bold), matrix slices use `[:,1..k]` syntax
+- `cleveref` is loaded — always use `\Cref{...}` (not bare `\ref`) for cross-references
+
+## Current state
+
+Section 4 (`Proving Isogeny Path Knowledge`) contains a TODO block (~line 476): the VOLEitH 9-round protocol still needs to be instantiated for the isogeny path problem (witness = intermediate $j$-invariants, constraints = modular polynomial relations).

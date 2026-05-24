@@ -72,6 +72,8 @@
 \providecommand{\negl}{\mathrm{negl}}
 \providecommand{\poly}{\mathrm{poly}}
 \newcommand{\itmac}[1]{\llbracket {#1} \rrbracket}
+\newcommand{\itmacP}[1]{\llbracket {#1} \rrbracket_{\calP}}
+\newcommand{\itmacV}[1]{\llbracket {#1} \rrbracket_{\calV}}
 
 \providecommand{\FF}{\mathbb{F}}
 \newcommand{\calP}{\mathcal{P}}
@@ -79,6 +81,9 @@
 \newcommand{\calR}{\mathcal{R}}
 \newcommand{\polyrel}{\Phi}
 \newcommand{\mat}[1]{\mathbf{#1}}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\newcommand{\msgrightarrow}[1]{\xrightarrow{\textstyle#1}}
+\newcommand{\msgleftarrow}[1]{\xleftarrow{\textstyle#1}}
 
 \title{Proving Isogeny Knowledge with VOLEitH}
 \author{Hongrui Cui}
@@ -160,11 +165,10 @@ $\mathsf{LeafCommit}: \{0,1\}^{\secpar} \to \{0,1\}^{2\secpar}$.
 The BAVC provides three algorithms~\cite{faestv2}:
 
 \begin{description}[leftmargin=0.9em, labelsep=0.5em]
-	\item[$\mathsf{BAVC.Commit}(r, iv) \to (\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\})$:]
-		On input a random root seed $r \in \{0,1\}^\lambda$ and initialization
-		vector $iv$, builds a GGM tree with $L = \tau \cdot N$ leaves.
+	\item[$\mathsf{BAVC.Commit}(r) \to (\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\})$:]
+		On input a random root seed $r \in \{0,1\}^\lambda$, builds a GGM tree with $L = \tau \cdot N$ leaves.
 		For each leaf position $(i,j) \in [0,\tau) \times [0,N)$, computes
-		$(\mathsf{sd}_{i,j}, \mathsf{com}_{i,j}) \gets \mathsf{LeafCommit}(k_\alpha, iv, \cdot)$
+		$(\mathsf{sd}_{i,j}, \mathsf{com}_{i,j}) \gets \mathsf{LeafCommit}(k_\alpha, \cdot)$
 		where $k_\alpha$ is the leaf seed.
 		Hashes the per-vector commitments $\{\mathsf{com}_{i,j}\}_j$ into
 		$h_i$, then outputs the root commitment $\mathsf{com} \gets H(h_0 \| \cdots \| h_{\tau-1})$
@@ -178,7 +182,7 @@ The BAVC provides three algorithms~\cite{faestv2}:
 		seeds needed to reconstruct all other leaves.
 		Aborts with $\bot$ if the required opening exceeds the threshold $T_{\sf open}$.
 
-	\item[$\mathsf{BAVC.Reconstruct}(\mathsf{decom}_I, I, iv) \to (\mathsf{com}, \{\mathsf{sd}_{i,j}\}_{j \neq \Delta_i})$:]
+	\item[$\mathsf{BAVC.Reconstruct}(\mathsf{decom}_I, I) \to (\mathsf{com}, \{\mathsf{sd}_{i,j}\}_{j \neq \Delta_i})$:]
 		Reconstructs every leaf except the hidden ones.
 		Walks up the GGM tree from the revealed sibling seeds to recover missing
 		internal seeds, re-computes leaf commitments, and outputs the recomputed
@@ -197,7 +201,7 @@ We adopt the generalized Information-Theoretic Message Authentication Code
 
 \begin{definition}\label{def:it-mac}
 	For $d \in \Z$, a degree-$d$ IT-MAC for $a \in \F_{p^2}$ is
-	$\itmac{a}^{d} := (p_a(x), k_a, \Delta)$,
+	$\itmac{a}^{(d)} := (p_a(x), k_a, \Delta)$,
 	where a prover $\calP$ holds a polynomial ${p}_{a}(x) \in \F_{p^2}[x]$
 	with $\deg(p_a) = d$ and leading coefficient $a$;
 	while a verifier $\calV$ holds the evaluation
@@ -206,28 +210,34 @@ We adopt the generalized Information-Theoretic Message Authentication Code
 	The degree superscript $d$ is omitted when clear from context.
 \end{definition}
 
-Let $\itmac{a}^{d_a}$ and $\itmac{b}^{d_b}$ be two IT-MACs,
+In bracket notation, we write
+$\itmac{a}^{(d)} := (\itmacP{a}^{(d)}, \itmacV{a}^{(d)})$,
+where $\itmacP{a}^{(d)}$ denotes the degree-$d$ polynomial $p_a(x)$
+held by $\calP$, and $\itmacV{a}^{(d)}$ the evaluation
+$k_a = p_a(\Delta)$ held by $\calV$.
+
+Let $\itmac{a}^{(d_a)}$ and $\itmac{b}^{(d_b)}$ be two IT-MACs,
 with corresponding polynomials $p_a(x), p_b(x)$ and evaluations $k_a, k_b$,
 and assume w.l.o.g., $d_a \geq d_b$.
 IT-MAC supports the following local homomorphic operations:
 \begin{description}[leftmargin=0.9em, labelsep=0.5em]
-	\item[Addition.] To compute $\itmac{a + b}^{d_a} = \itmac{a}^{d_a} + \itmac{b}^{d_b}$,
+	\item[Addition.] To compute $\itmac{a + b}^{(d_a)} = \itmac{a}^{(d_a)} + \itmac{b}^{(d_b)}$,
 		$\calP$ computes $p_{a+b}(x) = p_a(x) + p_b(x) \cdot x^{d_a - d_b}$,
 		while $\calV$ computes $k_{a+b} = k_a + k_b \cdot \Delta^{d_a - d_b}$.
 
-	\item[Multiplication.] To compute $\itmac{ab}^{d_a \cdot d_b} = \itmac{a}^{d_a} \cdot \itmac{b}^{d_b}$,
+	\item[Multiplication.] To compute $\itmac{ab}^{(d_a \cdot d_b)} = \itmac{a}^{(d_a)} \cdot \itmac{b}^{(d_b)}$,
 		$\calP$ computes $p_{ab}(x) = p_a(x) \cdot p_b(x)$,
 		while $\calV$ computes $k_{ab} = k_a \cdot k_b$.
 
 	\item[Constants.] For any $c \in \F_{p^2}$ and $d \in \Z$,
-		define $\itmac{c}^{d}$ by $p_c(x) = c x^d$ and $k_c = c \Delta^d$.
+		define $\itmac{c}^{(d)}$ by $p_c(x) = c x^d$ and $k_c = c \Delta^d$.
 		Combining this with the above operations, constant addition and
 		scalar multiplication preserve degree.
-		Subtraction follows as $\itmac{a} - \itmac{b} := \itmac{a} + \itmac{-1}^{1} \cdot \itmac{b}$.
-		Moreover, to de-randomize a random IT-MAC $\itmac{r}^{1}$
+		Subtraction follows as $\itmac{a} - \itmac{b} := \itmac{a} + \itmac{-1}^{(1)} \cdot \itmac{b}$.
+		Moreover, to de-randomize a random IT-MAC $\itmac{r}^{(1)}$
 		(where $r \sample \F_{p^2}$) into a target value $x \in \F_{p^2}$,
 		$\calP$ publishes $\delta := x - r$, and both parties compute
-		$\itmac{x}^{1} := \itmac{r}^{1} + \itmac{\delta}^{1}$.
+		$\itmac{x}^{(1)} := \itmac{r}^{(1)} + \itmac{\delta}^{(1)}$.
 \end{description}
 
 IT-MAC satisfies the following hiding and binding properties:
@@ -245,6 +255,16 @@ IT-MAC satisfies the following hiding and binding properties:
 		$\tilde{p}_{a'}(\Delta) = p_a(\Delta)$.
 		Assuming $\Delta \sample \F_{p^2}$, the probability of such a
 		collision is at most $\frac{\deg(p_a)}{p^2}$.
+\end{description}
+
+We define an additional procedure useful for masking in QuickSilver.
+\begin{description}[leftmargin=0.9em, labelsep=0.5em]
+	\item[Lifting.] Given a degree-1 IT-MAC 
+	$\itmac{r}^{(1)} := (\itmacP{r}^{(1)}, \itmacV{r}^{(1)})$, 
+	define $\itmac{0}^{(2)} := \mathsf{Lift}(\itmac{r}^{(1)})$ so that
+	$\itmac{0}^{(2)} := (\itmacP{r}^{(1)}, \itmacV{r}^{(1)})$. I.e., 
+	the representation remain unchanged, and we merely treat $\itmac{r}^{(1)}$
+	as a degree-2 authenticaton of $0 \in \F$ in subsequent computations. 
 \end{description}
 
 
@@ -270,7 +290,8 @@ The verifier $\calV$ knows the constraints $\{ f_i \}_{i \in [t]}$ but not the w
 For $n \in \mathbb{N}^+$, we define $[n] := \{ 0, 1, ..., n-1 \}$.
 
 We define $\ell_{\sf vole} := \lceil \frac{\ell_{\sf wit} + 1}{k_{\calC}} \rceil$.
-$\calP$ arranges the witness $\vec{w}$ into a $\ell_{\sf vole} \times k_{\calC}$ matrix over $\F$ as $\mat{W}$.
+$\calP$ arranges the witness $\vec{w}$ and a random $\F$ element $r_{\sf qs}$ into a $\ell_{\sf vole} \times k_{\calC}$ matrix over $\F$ as $\mat{W}$.
+In practice, we can set $r_{\sf qs}$ to be part of the $\mat{U}$ matrix and save sending one $\F$ element in $\mat{D}$.
 The internal QuickSilver proof system works on $\ell_{\sf vole} \cdot k_{\calC}$ random IT-MAC relations.
 Define $\hat{\ell}_{\sf vole} := 2 \cdot \ell_{\sf vole} + 1$.
 The VOLEitH framework generates $\hat{\ell}_{\sf vole}$ subspace VOLE correlations over $\F$ and we sacrifice one to check consistency.
@@ -279,17 +300,17 @@ The VOLEitH framework generates $\hat{\ell}_{\sf vole}$ subspace VOLE correlatio
 
 The protocol is parameterized by:
 \begin{itemize}
-	\item A security parameter $\secpar$ and a field $\F = \F_{p^2}$.
+	\item A security parameter $\secpar$ and a field $\F = {GF}(p^2)$.
 	\item A pseudorandom generator $\mathsf{PRG}: \{0,1\}^{\secpar} \to \F^{\hat{\ell}_{\sf vole}}$.
 	\item A number $\tau = n_C$ of parallel all-but-one VOLE instances and
 		a leaf count $N = 2^k$ per instance.
 	\item A systematic $[n_{\calC}, k_{\calC}, d_{\calC}]$-linear error correction code
 		$\calC \subseteq \F^{n_C}$, with encoding algorithm
 		$\mathsf{Enc}_{\calC}$.
-	\item A small subset of $\F$
+	\item A small subset
 		$\calD = \{\alpha_0, \dots, \alpha_{N-1}\} \subset \F$
 		of size $N = 2^k$, for converting all-but-one vector commitment into VOLE correlations.
-	\item A set of degree-2 constraints $f_1, \dots, f_t$ over $\F$ to be proven. For each $i \in [1, t]$, the witness $\vec{w}$ should satisfy that $f_i (\vec{w}) = 0$.
+	\item A set of degree-2 constraints $f_0, \dots, f_{t-1}$ over $\F$ to be proven. For each $i \in [1, t]$, the witness $\vec{w}$ should satisfy that $f_i (\vec{w}) = 0$.
 \end{itemize}
 
 
@@ -299,170 +320,159 @@ The protocol is parameterized by:
 
 The public-coin protocol proceeds in nine rounds.
 
-\begin{figure}[h]
+\begin{figure}[H]
 	\centering
-	\begin{tabular}{p{0.4\linewidth}p{0.2\linewidth}p{0.3\linewidth}}
+	\begin{tabular}{p{0.4\linewidth}>{\centering\arraybackslash}p{0.2\linewidth}p{0.3\linewidth}}
+		\toprule
+		$\calP$ & & $\calV$ \\
+		\midrule
 		$\vec{r} \sample \{ 0,1 \}^{\secpar}$ & & \\
 		$(\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\}) \gets \mathsf{BAVC.Com}(\vec{r})$ & & \\
+		$\forall i \in [\tau]$, $\vec{u}_i := \sum_{j} \mathsf{PRG}(\mathsf{sd}_{i,j})$ & & \\
+		$\forall i \in [\tau]$, $\vec{v}_i := \sum_{j} (- \alpha_j) \cdot \mathsf{PRG}(\mathsf{sd}_{i,j})$ & & \\
+		$\mat{U} := [\vec{u}_0, ..., \vec{u}_{k_{\calC}-1}]$ & & \\
+		$\widetilde{\mat{U}} := [\vec{u}_0, ..., \vec{u}_{n_{\calC}-1}]$ & & \\
+		$\mat{V} := [\vec{v}_0, ..., \vec{v}_{n_{\calC} - 1}]$ & & \\
+		$\mat{C} := \mathsf{Enc}_{\calC}(\mat{U}) - \widetilde{\mat{U}}$ & & \\
+		& $\msgrightarrow{(\mathsf{com}, \mat{C})}$ & \\
+		& $\msgleftarrow{\chi_1 \gets \F}$ & \\
+		$\mat{D} := \mat{W} - \mat{U}[[\ell_{\sf vole}], *]$ & & \\
+		$\tilde{\vec{u}} := \sum ( \chi_1 )^{i} \cdot \mat{U}[i, *]$ & & \\
+		$\tilde{\vec{v}} := \sum ( \chi_1 )^{i} \cdot \mat{V}[i, *]$ & & \\
+		& $\msgrightarrow{(\mat{D}, \tilde{\vec{u}}, \tilde{\vec{v}})}$ & \\
+		& $\msgleftarrow{\chi_2 \gets \F}$ & \\ 
+		$ \mat{V}' := \mat{U}[[\ell_{\sf vole}, 2\ell_{\sf vole}), *] $ & & \\
+		$\itmacP{\mat{W}}^{(1)} := (\mat{W}, \mat{V}')$ & & \\
+		$ \forall i \in [t]$, $\itmacP{z_i}^{(2)} := f_i(\itmacP{\vec{w}}^{(1)})$ & & \\
+		$ \itmacP{z}^{(2)} := \sum_{i} (\chi_2)^{i} \cdot \itmacP{z_i}^{(2)} + \mathsf{Lift}(\itmacP{r_{\sf qs}}^{(1)}) $ & & \\
+		& $\msgrightarrow{ \itmacP{z}^{(2)} }$ & \\
+		& $\msgleftarrow{ \Delta' \gets \F }$ & \\
+		$\mat{Q}' := \mat{W} \cdot \Delta' + \mat{V}'$ & & \\
+		$ \mat{V}_1 := \mat{V}[[\ell_{\sf vole}], *]$ & & \\
+		$ \mat{V}_2 := \mat{V}[[\ell_{\sf vole}, 2\ell_{\sf vole}), *]$ & & \\
+		$\mathsf{M}[\mat{Q}'] := \mat{V}_1 \cdot \Delta' + \mat{V}_2 $ & & \\
+		& $\msgrightarrow{ (\mat{Q}', \mathsf{M}[\mat{Q}']) }$ & \\
+		& & $(\delta_0, ..., \delta_{n_{\calC} - 1}) \gets ([N])^{n_{\calC}}$ \\
+		& & $ I := (\delta_0, ..., \delta_{n_{\calC} - 1}) $ \\
+		& $\msgleftarrow{ {I} }$ & \\
+		$\mathsf{decom}_{{I}} := \mathsf{BAVC.Decom}(\mathsf{decom}, {I})$ & & \\
+		& $\msgrightarrow{\mathsf{decom}_{{I}}}$ & \\
+		\bottomrule
 	\end{tabular}
-	\procedureblock{VOLEitH 9-Round Protocol}{
-		\calP(\vec{w}) \< \< \calV(\{f_i\}_{i=1}^{t}) \\[][\hline]
-		\vec{r} \sample \{ 0,1 \}^{\secpar} \< \< \\
-		(\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\})
-		\gets \mathsf{BAVC.Commit}(\vec{r})
-		\< \< \\
-		\forall i \in [\tau], \tilde{\vec{u}_{i}} := \sum_{j \in [N]} \mathsf{PRG}(\mathsf{sd}_{i,j})
-		\< \< \\
-	}
 
 	\caption{The 9-round VOLEitH Protocol.}
 	\label{fig:9-round-voleith-1}
 \end{figure}
 
 
+\begin{figure}[h]
+	\centering
+	\begin{tabular}{p{0.2\linewidth}>{\centering\arraybackslash}p{0.15\linewidth}p{0.57\linewidth}}
+		\toprule
+		$\calP$ & & $\calV$ \\
+		\midrule
+		& & $(\mathsf{com}^{\star}, \{\mathsf{sd}_{i,j}\}_{j \neq \delta_i}) := \mathsf{BAVC.Recon}({I}, \mathsf{decom}_{{I}})$ \\
+		& & $\forall i \in [\tau], \vec{q}_i := \sum_j (\alpha_{\delta_i} - \alpha_j) \cdot \mathsf{PRG}(\mathsf{sd}_{i, j})$ \\
+		& & $\mat{\Delta} := \mathsf{diag}(\alpha_{\delta_0}, ..., \alpha_{\delta_{n_{\calC} - 1}}) $ \\
+		& & $\widetilde{\mat{Q}} := [\vec{q}_0, ..., \vec{q}_{n_{\calC - 1}}]$ \\
+		& & $\mat{Q} := \widetilde{\mat{Q}} - [\mat{0}, \mat{C}] \cdot \mat{\Delta}  $ \\
+		& & BAVC opening and SoftSpokenOT checks: 
+		\begin{itemize}
+			\item $\mathsf{com}^{\star} = \mathsf{com}$
+			\item $\sum_{i} (\chi_1)^{i} \cdot \mat{Q}[i, *] = \mathsf{Enc}_{\calC}(\tilde{\vec{u}}) \cdot \mat{\Delta} + \tilde{\vec{v}}$
+		\end{itemize} \\
+		& & QuickSilver check:
+		\begin{itemize}
+			\item Parse $\mat{Q}'$ as $\itmacV{\mat{W}}^{(1)}$
+			\item $\sum_{i} f_i (\itmacV{\vec{w}}^{(1)}) + \mathsf{Lift}(\itmacV{r_{\sf qs}}^{(1)}) = \itmacV{z}^{(2)}(\Delta')$
+		\end{itemize} \\
+		& &  \\
+		& & Subspace VOLE opening check:
+		\begin{itemize}
+			\item $\mat{Q}_1 := \mat{Q}[[\ell_{\sf vole}], *] + \mathsf{Enc}_{\calC}(\mat{D}) \cdot \mat{\Delta}$
+			\item $\mat{Q}_2 := \mat{Q}[[\ell_{\sf vole}, 2\ell_{\sf vole}), *]$
+			\item $\mat{Q}_1 \cdot \Delta' + \mat{Q}_2 = \mathsf{Enc}_{\calC}(\mat{Q}') \cdot \mat{\Delta} + \mathsf{M}[\mat{Q}']$
+		\end{itemize} \\
+		\bottomrule
+	\end{tabular}
 
-
-
-\begin{center}
-\procedureblock[]{VOLEitH 9-Round Protocol}{%
-	\calP(\text{witness } \mat{W}) \< \< \calV(\{f_i\}_{i=1}^{t}) \\[][\hline]
-	r \sample \{0,1\}^{\secpar},\; iv \sample \{0,1\}^{128}
-		\< \< \\
-	(\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{a,j}\})
-		\gets \mathsf{BAVC.Commit}(r, iv)
-		\< \< \\
-	\text{For each code coordinate } a \in [n_C]\text{:} \< \< \\
-	\quad (\widetilde{\vec{u}}_a,\widetilde{\vec{v}}_a)
-		\gets \mathsf{SS.Sum}_{\calD}
-		(\{\mathsf{sd}_{a,j}\}_{\alpha_j\in\calD})
-		\< \< \\
-	\widetilde{\mat{U}} \gets
-		[\widetilde{\vec{u}}_1|\cdots|\widetilde{\vec{u}}_{n_C}],\quad
-		\mat{V} \gets
-		[\widetilde{\vec{v}}_1|\cdots|\widetilde{\vec{v}}_{n_C}]
-		\< \< \\
-	\mat{U} \gets \widetilde{\mat{U}}[:,1..k_C],\quad
-		\mathsf{aux}_{\calC}
-		\gets \mathsf{Enc}_{\calC}(\mat{U})-\widetilde{\mat{U}}
-		\< \< \\
-	\mat{U}=\binom{\mat{U}_1}{\mat{R}},\;
-		\mat{V}=\binom{\mat{V}_1}{\mat{V}_2}
-		\quad(\ell+1\text{ rows each}) \< \< \\
-	\mat{D} \gets
-		\mat{W} - \mat{U}_1[1..\ell]
-		\< \< \\
-	\< \sendmessageright*{iv,\; \mathsf{com},\; \mathsf{aux}_{\calC},\; \mat{D}} \< \\[-0.2\baselineskip]
-	\chi_1,\dots,\chi_t \gets
-		\mathsf{RO}_{\chi}(\mathsf{tr})
-		\< \< \\
-	\text{For } i \in [t]\text{, compute coefficients } \mat{A}_{i,0}, \mat{A}_{i,1} \text{ of} \< \< \\
-	\quad g_i(Y) =
-		\sum_{h=0}^{2} f_{i,h}(\vec{r}+\vec{w}Y)Y^{2-h}
-		\< \< \\
-	\mathsf{eb} \gets
-		\sum_{i \in [t]}\chi_i\mat{A}_{i,0}+\vec{r}_{\ell+1}
-		\< \< \\
-	\mathsf{ea} \gets
-		\sum_{i \in [t]}\chi_i\mat{A}_{i,1}+\vec{u}_{\ell+1}
-		\< \< \\
-	\< \sendmessageright*{\mathsf{eb},\; \mathsf{ea}} \< \\[-0.2\baselineskip]
-	\Delta' \gets \mathsf{RO}_{\Delta'}(\mathsf{tr})
-		\< \< \\
-	\mat{S} \gets \mat{R} + \mat{U}_1 \cdot \Delta'
-		\< \< \\
-	\< \sendmessageright*{\mat{S}} \< \\[-0.2\baselineskip]
-	\vec{\eta} \gets \mathsf{RO}_{\eta}(\mathsf{tr})
-		\< \< \\
-	\mathsf{ev} \gets
-		\vec{\eta}^{\top}(\mat{V}_2+\mat{V}_1\cdot\Delta')
-		\< \< \\
-	\< \sendmessageright*{\mathsf{ev}} \< \\[-0.2\baselineskip]
-	\vec{\delta}=(\delta_1,\dots,\delta_{n_C})
-		\gets \mathsf{RO}_{\Delta}(\mathsf{tr}; [N]^{n_C})
-		\< \< \\
-	\vec{\Delta} \gets (\alpha_{\delta_1},\dots,\alpha_{\delta_{n_C}})
-		\< \< \\
-	\mathsf{decom}_{\vec{\delta}} \gets
-		\mathsf{BAVC.Open}(\mathsf{decom}, \vec{\delta})
-		\< \< \\
-	\< \sendmessageright*{\mathsf{decom}_{\vec{\delta}}} \< \\
-	\pclb\pcintertext[center]{\textbf{Verification:}}\\
-	\< \<
-	(\mathsf{com}', \{\mathsf{sd}_{a,j}\}_{j \neq \delta_a})
-		\gets \mathsf{BAVC.Reconstruct}(\mathsf{decom}_{\vec{\delta}}, \vec{\delta}, iv) \\
-	\< \<
-	\text{For each } a \in [n_C]\text{: } \\
-	\< \<
-	\quad \widetilde{\vec{q}}_a \gets
-		\mathsf{SS.Open}_{\calD}
-		(\{\mathsf{sd}_{a,j}\}_{j\neq\delta_a}, \Delta_a) \\
-	\< \<
-	\widetilde{\mat{Q}} \gets
-		[\widetilde{\vec{q}}_1|\cdots|\widetilde{\vec{q}}_{n_C}] \\
-	\< \<
-	\mat{Q} \gets
-		\widetilde{\mat{Q}}+\mathsf{aux}_{\calC}\operatorname{diag}(\vec{\Delta}) \\
-	\< \<
-	\mat{Q}=\binom{\mat{Q}_1}{\mat{Q}_2},\quad
-	\mat{S}' \gets \mat{S}+
-		\binom{\mat{D}}{0}\cdot\Delta' \\
-	\< \<
-	\text{For } i\in[t]\text{, compute }
-	c_i(Y)=\sum_{h=0}^{2}
-		f_{i,h}(\vec{s}'_{1..\ell})Y^{2-h} \\
-	\< \<
-	\mathsf{es} \gets
-		\sum_{i\in[t]}\chi_i c_i(\Delta')+\vec{s}'_{\ell+1} \\
-	\< \<
-	\text{Check } \mathsf{com}'=\mathsf{com}
-		\text{ and } \mathsf{es}=\mathsf{eb}+\mathsf{ea}\cdot\Delta' \\
-	\< \<
-	\mat{T} \gets \mathsf{ECC.Encode}_{\calC}(\mat{S}) \\
-	\< \<
-	\mat{L} \gets \vec{\eta}^{\top}(\mat{Q}_2+\mat{Q}_1\cdot\Delta') \\
-	\< \<
-	\mat{R}_{\Delta} \gets
-		\mathsf{ev}+\vec{\eta}^{\top}\mat{T}\operatorname{diag}(\vec{\Delta}) \\
-	\< \<
-	\text{Check } \mat{L}=\mat{R}_{\Delta} \\
-	\< \< \text{Accept iff all checks pass}
-}
-\end{center}
+	\caption{The 9-round VOLEitH Protocol.}
+	\label{fig:9-round-voleith-2}
+\end{figure}
 
 \subsection{Round-by-Round Explanation}
 
 \begin{description}[leftmargin=0.9em, labelsep=0.5em]
-	\item[Commitment and subspace VOLE setup.]
-		The prover commits to the $\tau=n_C$ all-but-one seed vectors with
+	\item[Commitment and subspace VOLE.]
+		$\calP$ commits to $\tau=n_C$ seed vectors with
 		$\mathsf{BAVC.Commit}$.  Each vector is converted, via the
 		SoftSpokenOT summation over $\calD$, into one raw coordinate of a
 		VOLE transcript.  The prover takes the first $k_C$ raw coordinates
 		as $\mat{U}$ and sends
-		$\mathsf{aux}_{\calC}=\mathsf{Enc}_{\calC}(\mat{U})-\widetilde{\mat{U}}$
-		so that the verifier can correct the opened raw VOLE values into a
-		Reed--Solomon codeword.
+		$\mat{C} = \mathsf{Enc}_{\calC}(\mat{U})-\widetilde{\mat{U}}$
+		so that $\calV$ can correct the opened raw subspace VOLE materials,
+		into authentication of Reed-Solomon codewords.
 
-	\item[Constraint batching.]
-		The random oracle challenge $\chi$ batches the degree-2 constraints.
-		The prover sends the masked QuickSilver-style coefficients
-		$\mathsf{eb}$ and $\mathsf{ea}$.
+	\item[Committing to the witness by subspace VOLE.]
+		$\calP$ uses the first $\ell_{\sf vole}$ rows of $\mat{U}$ to commit to the witness
+		$\mat{W}$, allowing $\calP$ and $\calV$ to get the subspace VOLE commitment 
+		of $\vec{w}$ and the mask $r_{\sf qs}$.
 
-	\item[Code-switch opening.]
-		The random oracle challenge $\Delta'$ asks the prover to open
-		$\mat{S}=\mat{R}+\mat{U}_1\Delta'$.  The additional challenge
-		$\vec{\eta}$ compresses the verification of this opening to the
-		single value $\mathsf{ev}$.
+	\item[SoftSpokenOT Checking.]
+		$\calV$ needs to check that the correction matrix $\mat{C}$ indeed fixes $\tilde{\mat{U}}$
+		into the requried format, i.e., every row is a codeword of $\calC$. So using the challenge
+		$\chi_1$, $\calP$ computes the linear combination of the rows of $\mat{U}$ and sends result to 
+		$\calV$. $\tilde{\vec{u}}$ is masked by $\mat{U}[2\ell_{\sf vole} + 1, *]$, sending $\tilde{\vec{u}}$
+		does not leak information about $\mat{W}$.
+
+	\item[Batched QuickSilver Proof.]
+		$\calP$ convinces $\calV$ that $\forall i \in [t]$, $f_{i} (\vec{w}) = 0$.
+		This is done by evaluating $f_{i}$ on the IT-MAC commitment of $\vec{w}$,
+		and sending the masked polynomial $\itmacP[z]^{(2)}$ to $\calV$, who then 
+		checks that it indeed evaluates to $\itmacV[z]^{(2)}$ on the IT-MAC global key.
+		But since subspace VOLE cannot support arithmetic within a committed vector,
+		an additional step is to simulate regular IT-MACs within subspace VOLE.
+		In particular, after $\calP$ sends its QuickSilver messages, $\calV$ samples an 
+		IT-MAC key $\Delta'$ and sends it to $\calP$.
+		$\calP$ uses the first $\ell_{\sf vole}$ rows of $\mat{U}$, $\mat{W}$, as IT-MAC messages and 
+		the next $\ell_{\sf vole}$ rows of $\mat{U}$, $\mat{V}'$, as IT-MAC tags. 
+		Then, $\calP$ directly computes $\mat{Q}' = \mat{W} \cdot \Delta' + \mat{V}'$ and 
+		sends $\mat{Q}'$ as well as its subspace VOLE authentication material $\mathsf{M}[\mat{Q}']$
+		to $\calV$.
+		The security of subspace VOLE prevents $\calP$ from cheating in the computation of 
+		$\mat{Q}'$, and ensures that $\calV$ can use the received $\mat{Q}'$ as the correct 
+		IT-MAC local key.
 
 	\item[BAVC opening and verification.]
-		The final challenge first selects indices
-		$\vec{\delta}\in[N]^{n_C}$ and hence field points
-		$\vec{\Delta}\in\calD^{n_C}$.  The verifier reconstructs all opened
-		seeds, recomputes the raw SoftSpokenOT openings $\widetilde{\mat{Q}}$,
-		corrects them as
-		$\mat{Q}=\widetilde{\mat{Q}}+\mathsf{aux}_{\calC}\operatorname{diag}(\vec{\Delta})$,
-		and checks both the batched constraint equation and the subspace-VOLE
-		consistency equation.
+		The final challenge is a vector $I := (\delta_0, ..., \delta_{n_{\calC} - 1})$
+		of $\tau$ random indices in $[N]$. 
+		$\calP$ opens the BAVC commitment so that for $i \in [n_{\calC}]$, 
+		$\calV$ learns $\mathsf{sd}_{i, j}$ for $j \in [N], j \neq \delta_{i}$.
+		Using the same summation method, $\calV$ can compute the ``raw'' subspace VOLE 
+		authentication materials $\widetilde{\mat{Q}}$.
 \end{description}
+
+From $\widetilde{\mat{Q}}$, $\calV$ can run the following checks:
+\begin{itemize}
+	\item \textbf{BAVC Opening Check:} Verify that the reconstructed $\mathsf{com}^{\star}$
+	indeed matches the $\mathsf{com}$ that $\calP$ sends. This ensure that BAVC opening is 
+	correct. 
+	
+	\item \textbf{SoftSpokenOT Check: } Verify that the $(\tilde{\vec{u}}, \tilde{\vec{v}})$ pair 
+	is need a valid subspace VOLE correlation under the global key $\mat{\Delta}$ (defined by $I$).
+	This ensures that the $\mat{C}$ sent by $\calP$ is correct. 
+
+	\item \textbf{QuickSilver Check:} Verify that the $\itmacP{z}^{(2)}$ sent by $\calP$ evaluates 
+	to $\itmacV{z}^{(2)}$ at $\Delta'$, where $\calV$ uses $\mat{Q}'$ to define 
+	$\itmacV{\mat{W}}^{(1)}$, under $\Delta'$. 
+	This ensure that the constraints $f_0, ..., f_{t-1}$ are satisfied 
+	by the committed $\vec{w}$.
+
+	\item \textbf{Subspace VOLE Opening Check:} Verify that every row of the sent 
+	$(\mat{Q}', \mathsf{M}[\mat{Q}'])$ is indeed a valid subspace VOLE correlation 
+	under the gloabl key $\mat{\Delta}$. This ensures that the $\mat{Q}'$ in the previous 
+	step is indeed correct.
+\end{itemize}
 
 % ===================================================================
 \section{Proving Isogeny Path Knowledge}
