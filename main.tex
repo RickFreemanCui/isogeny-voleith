@@ -119,39 +119,147 @@ $\ell$-th modular polynomial $\polyrel_{\ell}$.
 
 \subsection{Modular Polynomials}
 
-\begin{definition}[Modular Polynomial]
-	For a prime $\ell$, the $\ell$-th modular polynomial
+\begin{definition}[Classical Modular Polynomial]
+	For a prime $\ell$, the $\ell$-th classical modular polynomial
 	$\polyrel_{\ell}(X, Y) \in \Z[X, Y]$ is a symmetric polynomial
-	of degree $\ell + 1$ in each variable, with the property that
+	of degree $\ell + 1$ in each variable, with the property that for any two
+	elliptic curves $E, E'$ over a field of characteristic $\neq \ell$,
 	\[
 		\polyrel_{\ell}(j(E), j(E')) = 0
 		\iff \text{there exists an isogeny } E \to E' \text{ of degree } \ell.
 	\]
 \end{definition}
 
-For a small prime $\ell$, the polynomial $\polyrel_{\ell}$ can be precomputed.
-For example, $\polyrel_2(X, Y)$ has the form
-\begin{equation}\label{eq:modpoly}
-	\polyrel_{\ell}(X, Y) = \sum_{a = 0}^{\ell+1} \sum_{b = 0}^{\ell+1}
-	c_{a,b} \, X^a Y^b,
-	\qquad c_{a,b} \in \Z.
+For $\ell = 2$, the classical modular polynomial is explicitly:
+\begin{equation}\label{eq:modpoly2}
+	\begin{aligned}
+		\polyrel_2(X, Y) = &\ X^3 + Y^3 + X^2Y^2
+		- 1488(X^2Y + XY^2) - 162000(X^2 + Y^2) \\
+		&+ 40773375XY + 8748000000(X + Y) - 157464000000000.
+	\end{aligned}
 \end{equation}
+This is a bivariate polynomial of total degree $4$. Evaluating
+$\polyrel_2(X, Y)$ requires computing the monomials
+$\{X, X^2, X^3, Y, Y^2, Y^3, XY\}$ and taking a linear combination.
 
-\subsection{Isogeny Path}
+For more efficient arithmetization in proof systems, one may use
+\emph{canonical modular polynomials}~\cite{canonicalModPoly}.
+For $\ell \in \{2, 3, 5, 7, 13\}$, the $\ell$-th canonical modular polynomial
+has the structured form
+\begin{equation}\label{eq:canonical-modpoly}
+	\polyrel_{\ell}^c(X, j) = X^{\ell+1} + \sum_{i=1}^{\ell} c_i X^i
+	+ \ell^{s} - X \cdot j,
+	\qquad s = \frac{12}{\ell - 1},
+\end{equation}
+with integer coefficients $c_i \in \Z$ and $c_{\ell+1} = 1$.
+Compared to the classical $\polyrel_{\ell}$ (total degree $2\ell$),
+$\polyrel_{\ell}^c$ has degree $\ell+1$ in $X$ and degree $1$ in $j$,
+which reduces the multiplicative complexity of the verification circuit.
+
+Two curves $E, E'$ are $\ell$-isogenous iff the system
+\[
+	\polyrel_{\ell}^c(X, j(E)) = 0
+	\quad \land \quad
+	\polyrel_{\ell}^c(\ell^{s}/X,\, j(E')) = 0
+\]
+has a common solution $X \in \F_{p^2}$.
+Multiplying the second equation by $X^{\ell+1}/\ell^{s}$ yields the equivalent
+polynomial $\Theta_{\ell}^c$, giving two explicit degree-$\ell+1$
+equations in $X$:
+\begin{equation}\label{eq:canonical-two-eq}
+	\sum_{i=0}^{\ell+1} c_i X^i - j X = 0
+	\quad \land \quad
+	\sum_{i=0}^{\ell+1} c'_i X^i - j' X^{\ell} = 0,
+\end{equation}
+where $c_0 = \ell^{s}$, $c_{\ell+1} = 1$,
+$c'_i = c_{\ell+1-i} \cdot \ell^{s(\ell-i)}$, and
+$j = j(E)$, $j' = j(E')$.
+
+\subsection{Isogeny Path and Verification}
 
 \begin{definition}[Isogeny Chain]
-	An isogeny $\phi: E_0 \to E_n$ of degree $\ell^k$ can be factored as
+	An isogeny $\phi: E_0 \to E_k$ of degree $\ell^k$ can be factored as
 	\[
 		E_0 \xrightarrow{\phi_1} E_1 \xrightarrow{\phi_2} \cdots
-		\xrightarrow{\phi_k} E_k = E_n
+		\xrightarrow{\phi_k} E_k
 	\]
 	where each $\phi_i: E_{i-1} \to E_i$ is an isogeny of degree $\ell$.
-	Consequently, $\polyrel_{\ell}(j(E_{i-1}), j(E_i)) = 0$ for all
-	$i \in [1, n]$.
+	Let $j_i := j(E_i)$. Then $\polyrel_{\ell}(j_{i-1}, j_i) = 0$ for all
+	$i \in [1, k]$.
 \end{definition}
 
-The prover knows the entire chain, including the intermediate curves
-$E_1, \dots, E_{n-1}$. The verifier only knows $E_0$ and $E_n$.
+The prover $\calP$ knows the entire chain, including the intermediate
+$j$-invariants $j_1, \dots, j_{k-1}$. The verifier $\calV$ only knows
+$j_0 = j(E_0)$ and $j_k = j(E_k)$.
+
+The relation to be proven is:
+\begin{equation}\label{eq:isopath-relation}
+	R_{\ell^k\text{-}\mathrm{ModPoly}} = \left\{
+		((j_0, j_k),\; \vec{j} = (j_1, \dots, j_{k-1})) \;:\;
+		\polyrel_{\ell}(j_{i-1}, j_i) = 0,\; \forall i \in [1, k]
+	\right\}.
+\end{equation}
+Equivalently, using canonical polynomials, for each step $i$ the prover
+additionally supplies $X_i \in \F_{p^2}$ satisfying
+\Cref{eq:canonical-two-eq} with $(j, j') = (j_{i-1}, j_i)$.
+
+\medskip\noindent
+\textbf{Verification in the clear.}
+To verify an isogeny path without zero-knowledge, $\calV$ evaluates
+$\polyrel_{\ell}(j_{i-1}, j_i)$ for $i = 1, \dots, k$ and checks that each
+result is $0$. For classical $\polyrel_2$, each evaluation costs a small
+constant number of $\F_{p^2}$ multiplications (seven monomials and one
+linear combination). For canonical polynomials, each step evaluates two
+degree-$\ell+1$ univariate polynomials via Horner's method, costing
+$O(\ell)$ multiplications per step.
+
+\medskip\noindent
+\textbf{Parameters.}
+The protocol operates over $\F_{p^2}$ where $p$ is a large prime of the
+form $p = 2^a \cdot 3^b \cdot f \pm 1$, supporting efficient isogeny
+computation and FFT-based proof systems~\cite{CLL23}.
+The isogeny degree is a small prime $\ell \in \{2, 3, 5, 7, 13\}$.
+The path length $k$ must satisfy $\ell^{k/2} \approx 2^{\lambda}$ for
+$\lambda$ bits of classical security (claw-finding resistance), i.e.\
+$k \approx 2\lambda / \log_2 \ell$. Concrete parameters are listed in
+\Cref{tab:isogeny-params}.
+
+\begin{table}[H]
+	\centering
+	\caption{Concrete isogeny path parameters for $\ell = 2$.
+		$k_{\text{mix}}$ is the path length for uniform mixing in the
+		supersingular isogeny graph (as in~\cite{CLL23});
+		$k_{\text{min}}$ is the minimum for $\lambda$-bit classical security,
+		i.e.\ $2^{k/2} \approx 2^{\lambda}$.}
+	\label{tab:isogeny-params}
+	\begin{tabular}{c c c c c c}
+		\toprule
+		Prime $p$ & Bits & $\lambda$ & $k_{\text{mix}}$ & $k_{\text{min}}$ \\
+		\midrule
+		$2^{216} \, 3^{137} - 1$ & 434 & 128 & 705 & 216 \\
+		$2^{250} \, 3^{159} - 1$ & 503 & 128 & 774 & 250 \\
+		$2^{305} \, 3^{192} - 1$ & 610 & 192 & 1010 & 305 \\
+		$2^{372} \, 3^{239} - 1$ & 751 & 256 & 1280 & 372 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+For larger $\ell$, the path length shrinks (by a factor of $\log_2 \ell$)
+but the per-step verification cost grows as $O(\ell)$. The trade-off is
+favorable: moving from $\ell = 2$ to $\ell = 13$ reduces $k$ by a factor
+of $\approx 3.7$ while increasing the per-step constraint count by a factor
+of $\approx 3.3$~\cite{canonicalModPoly}.
+
+\medskip\noindent
+\textbf{Encoding as degree-2 constraints.}
+In the VOLEitH setting, each modular polynomial check is expressed as a
+small set of degree-2 constraints (multiplication gates) over $\F_{p^2}$.
+For classical $\polyrel_2$, each step requires $4$ constraints (squaring
+$j_{i-1}$, cubing $j_{i-1}$, computing $j_{i-1} j_i$, and the polynomial
+evaluation), giving $4k+2$ constraints for a path of length $k$.
+With canonical polynomials, this is reduced to $(\ell+3)k$ constraints
+over $\F_{p^2}$; for $\ell = 2$, this becomes $3k$ constraints
+(see \Cref{tab:r1cs-comparison} in \Cref{sec:isogeny-proof}).
 
 \subsection{Batch All-but-one Vector Commitment}
 
@@ -476,12 +584,178 @@ From $\widetilde{\mat{Q}}$, $\calV$ can run the following checks:
 
 % ===================================================================
 \section{Proving Isogeny Path Knowledge}
+\label{sec:isogeny-proof}
 % ===================================================================
 
+\subsection{Parameters for $\lambda = 128$}
+
+For a target security level of $\lambda = 128$ bits, the isogeny path length $k$
+must resist claw-finding attacks with classical complexity $\tilde{O}(\ell^{k/2})
+\approx 2^{128}$. This yields $k \approx 2\lambda / \log_2 \ell$.
+\Cref{tab:isogeny-params-128} lists the concrete parameters for primes
+supporting both SIKE-style ($p = 2^a 3^b f - 1$) and FFT-friendly
+($p = 2^a 3^b f + 1$) arithmetic.
+
+\begin{table}[H]
+	\centering
+	\caption{Isogeny path parameters for $\lambda = 128$. $k = \lceil 2\lambda
+		/ \log_2 \ell \rceil$ is the minimal path length for classical claw-finding
+		resistance. $m$ and $n$ are R1CS constraint and variable counts per step
+		over $\F_{p^2}$, using canonical modular polynomials~\cite{canonicalModPoly}
+		(see \Cref{tab:r1cs-comparison} for classical-polynomial baselines).}
+	\label{tab:isogeny-params-128}
+	\begin{tabular}{c c c c c c}
+		\toprule
+		$\ell$ & $k$ & Total degree $\ell^k$ & $m/k$ & $n/k$ & Supported primes \\
+		\midrule
+		2  & 256 & $2^{256}$   & 3   & 3   & p434, p503 \\
+		3  & 162 & $3^{162}$   & 4   & 4   & p434, p503 \\
+		5  & 111 & $5^{111}$   & 6   & 6   & p434, p503 \\
+		7  & 92  & $7^{92}$    & 7   & 7   & $\ge 434$-bit \\
+		13 & 70  & $13^{70}$   & 10  & 10  & $\ge 434$-bit \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+For $\ell = 2$, the classical modular polynomial
+approach~\cite{CLL23} uses $m/k = 4$ and $n/k = 4$; canonical polynomials
+reduce this to $m/k = 3$ and $n/k = 3$.
+For larger $\ell$, the per-step cost grows but the total path length $k$
+shrinks more rapidly, yielding a net reduction in the total number of
+constraints $m_{\text{total}} = (m/k) \cdot k$.
+For example, moving from $\ell = 2$ ($m_{\text{total}} = 768$) to
+$\ell = 13$ ($m_{\text{total}} = 700$) saves $\sim 9\%$ on constraints
+while also reducing the witness size from $256$ to $70$ intermediate
+$j$-invariants.
+
+\subsection{Existing Proof Systems for Isogeny Paths}
+
+\Cref{tab:isogeny-proof-systems} surveys the state-of-the-art proof systems
+for proving knowledge of an $\ell^k$-isogeny at the $\lambda = 128$ security
+level. All benchmarks are single-threaded on comparable desktop hardware;
+``projected'' entries are scaled from the underlying R1CS constraint counts
+rather than independently benchmarked.
+
+\begin{table}[H]
+	\centering
+	\caption{Comparison of proof systems for proving isogeny path knowledge
+		($\lambda = 128$, $\ell = 2$, $k = 216$ minimal-security path length
+		over p434 / $\F_{p^2}$, except where noted).
+		$\tau$ = setup type (T = transparent, none = no setup).
+		Soundness: E = exact, R = relaxed.
+		``proj.'' = projected from constraint counts.}
+	\label{tab:isogeny-proof-systems}
+	\begin{tabular}{c c c c c c c}
+		\toprule
+		System & P (ms) & V (ms) & $|\pi|$ (kB) & $\tau$ & Sound. & Ref. \\
+		\midrule
+		\multicolumn{7}{c}{\textit{Tailor-made protocols}} \\
+		Secuer{}PoK
+			& 12,369 & 1,399 & 191 & none & R & \cite{BCC+22} \\
+		\midrule
+		\multicolumn{7}{c}{\textit{Generic proof systems (classical $\Phi_2$,
+			$m = 4k+2$, $n = 4k+3$)}} \\
+		Aurora    & 934  & 99  & 194  & T & E & \cite{CLL23} \\
+		Ligero    & 587  & 847 & 1,849 & T & E & \cite{CLL23} \\
+		Limbo     & 354  & 273 & 2,598 & T & E & \cite{CLL23} \\
+		\midrule
+		\multicolumn{7}{c}{\textit{Generic proof systems (canonical $\Phi_2^c$,
+			$m = 3k$, $n = 3k+1$)}} \\
+		Aurora    & 669  & 74  & 178  & T & E & \cite{canonicalModPoly} \\
+		Ligero    & 420  & 634 & 1,599 & T & E & \cite{canonicalModPoly} \\
+		\midrule
+		\multicolumn{7}{c}{\textit{Canonical, over $\F_p$
+			(p441+, $m = 7k$, $n = 7k+2$)}} \\
+		Aurora    & 727  & 62  & 147  & T & E & \cite{canonicalModPoly} \\
+		Ligero    & 255  & 313 & 1,381 & T & E & \cite{canonicalModPoly} \\
+		\midrule
+		\multicolumn{7}{c}{\textit{Radical isogenies ($\ell = 2$, $m = 7k$ over
+			$\F_p \times \F_p$, non-backtracking)}} \\
+		Levin--Pedersen
+			& 85\textsuperscript{$\dagger$} & 30\textsuperscript{$\dagger$}
+			& 430\textsuperscript{$\dagger$} & T & E & \cite{LP24} \\
+		\bottomrule
+	\end{tabular}
+
+	\smallskip
+	{\footnotesize \textsuperscript{$\dagger$}Estimated for a VRF with circuit
+	size $2^{13}$ and 256-bit prime; not directly benchmarked for the plain
+	isogeny PoK.}
+\end{table}
+
+\medskip\noindent
+\textbf{Constraint-count comparison across $\ell$.}
+\Cref{tab:r1cs-comparison} compares the number of R1CS constraints per step
+across the different modular-polynomial approaches, normalized for
+$\lambda = 128$.
+
+\begin{table}[H]
+	\centering
+	\caption{R1CS constraint counts for an isogeny path at $\lambda = 128$,
+		over $\F_{p^2}$ (canonical, Atkin, Weber) and $\F_p \times \F_p$
+		(radical). $k$ is the minimal path length; $m_{\text{total}}$ is the
+		total number of constraints. Percentages are savings relative to the
+		classical~\cite{CLL23} baseline at the same $\ell$.}
+	\label{tab:r1cs-comparison}
+	\begin{tabular}{c c c c c c c}
+		\toprule
+		$\ell$ & $k$ & Method & $m/k$ & $m_{\text{total}}$ & Savings & Ref. \\
+		\midrule
+		\multirow{4}{*}{2}
+			& \multirow{4}{*}{256}
+				& Classical $\Phi_2$     & 4  & 1,024 & baseline & \cite{CLL23} \\
+			&  & Canonical $\Phi_2^c$  & 3  & 768   & 25\%    & \cite{canonicalModPoly} \\
+			&  & Radical isogenies     & 3.5\textsuperscript{*} & 896 & 13\% & \cite{LP24} \\
+			&  & Weber (prel.)         & —  & —     & 39\%\textsuperscript{$\ddagger$} & \cite{AtkinWeber26} \\
+		\midrule
+		\multirow{3}{*}{3}
+			& \multirow{3}{*}{162}
+				& Canonical $\Phi_3^c$  & 4  & 648   & baseline & \cite{canonicalModPoly} \\
+			&  & Atkin (prel.)         & —  & —     & 27\%\textsuperscript{$\ddagger$} & \cite{AtkinWeber26} \\
+			&  & Weber (prel.)         & —  & —     & 39\%\textsuperscript{$\ddagger$} & \cite{AtkinWeber26} \\
+		\midrule
+		\multirow{2}{*}{5}
+			& \multirow{2}{*}{111}
+				& Canonical $\Phi_5^c$  & 6  & 666   & baseline & \cite{canonicalModPoly} \\
+			&  & Atkin (prel.)         & —  & —     & 27\%\textsuperscript{$\ddagger$} & \cite{AtkinWeber26} \\
+		\midrule
+		\multirow{2}{*}{7}
+			& \multirow{2}{*}{92}
+				& Canonical $\Phi_7^c$  & 7  & 644   & baseline & \cite{canonicalModPoly} \\
+			&  & Atkin (prel.)         & —  & —     & 27\%\textsuperscript{$\ddagger$} & \cite{AtkinWeber26} \\
+		\midrule
+		\multirow{2}{*}{13}
+			& \multirow{2}{*}{70}
+				& Canonical $\Phi_{13}^c$ & 10 & 700  & baseline & \cite{canonicalModPoly} \\
+			&  & Atkin (prel.)         & —  & —     & 27\%\textsuperscript{$\ddagger$} & \cite{AtkinWeber26} \\
+		\bottomrule
+	\end{tabular}
+
+	\smallskip
+	{\footnotesize \textsuperscript{*}$7k / 2$ since radical isogenies are
+	benchmarked over $\F_p \times \F_p$ (each $\F_{p^2}$ constraint lifts to
+	$\sim 3$ constraints over $\F_p$). Normalized to $\F_{p^2}$-equivalent
+	for comparison. \\
+	\textsuperscript{$\ddagger$}Preliminary savings on non-zero entries /
+	constraint counts claimed by~\cite{AtkinWeber26}; full concrete benchmarks
+	pending.}
+\end{table}
+
+\medskip\noindent
+\textbf{Implications for VOLEitH.}
+The VOLEitH proof system of \Cref{sec:voleith} scales with the number of
+degree-2 constraints $t$ and the witness size $\ell_{\sf wit}$.
+With canonical modular polynomials at $\ell = 2$ over $\F_{p^2}$, we have
+$t = 3k = 768$ constraints and $\ell_{\sf wit} = 3k+1 = 769$ witness
+elements for $\lambda = 128$.
+Using $\ell = 13$ reduces the witness to $701$ elements but increases the
+per-step constraint count. The optimal choice depends on the concrete
+VOLEitH parameters (code $\calC$, VOLE batch size $\tau$, etc.),
+which we instantiate in the next subsection.
+
 %% TODO: Instantiate the 9-round VOLEitH framework for the isogeny path problem.
-%% The witness is the chain of intermediate j-invariants j_1, ..., j_{k-1}.
-%% The degree-2 constraints are the modular polynomial relations 
-%% \Phi_{\ell}(j_{i-1}, j_i) = 0 for each step i \in [1, k].
+%% Compute concrete VOLEitH parameters: tau, N, l_vole, and estimate prover/verifier
+%% times and proof sizes based on the constraint counts above.
 
 
 % ===================================================================
