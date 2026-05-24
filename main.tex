@@ -267,7 +267,7 @@ A Batch All-but-one Vector Commitment (BAVC) allows a prover to commit
 to $\tau$ vectors of seeds, and later open all but one position per vector.
 We work over the base field $\F_{p^2}$.
 The scheme is parameterized by the number of vectors $\tau$, the vector
-length $N = 2^k$, and a leaf commitment function
+length $N = 2^{k_{\sf vc}}$, and a leaf commitment function
 $\mathsf{LeafCommit}: \{0,1\}^{\secpar} \to \{0,1\}^{2\secpar}$.
 
 The BAVC provides three algorithms~\cite{faestv2}:
@@ -290,7 +290,7 @@ The BAVC provides three algorithms~\cite{faestv2}:
 		seeds needed to reconstruct all other leaves.
 		Aborts with $\bot$ if the required opening exceeds the threshold $T_{\sf open}$.
 
-	\item[$\mathsf{BAVC.Reconstruct}(\mathsf{decom}_I, I) \to (\mathsf{com}, \{\mathsf{sd}_{i,j}\}_{j \neq \Delta_i})$:]
+	\item[$\mathsf{BAVC.Reconstruct}(\mathsf{decom}_I, I) \to (\mathsf{com}, \{\mathsf{sd}_{i,j}\}_{j \neq \delta_i})$:]
 		Reconstructs every leaf except the hidden ones.
 		Walks up the GGM tree from the revealed sibling seeds to recover missing
 		internal seeds, re-computes leaf commitments, and outputs the recomputed
@@ -404,7 +404,7 @@ The verifier $\calV$ knows the constraints $\{ f_i \}_{i \in [t]}$ but not the w
 
 For $n \in \mathbb{N}^+$, we define $[n] := \{ 0, 1, ..., n-1 \}$.
 
-We define $\ell_{\sf vole} := \lceil \frac{\ell_{\sf wit} + 1}{k_{\calC}} \rceil$.
+We define $\ell_{\sf vole} := \lceil \frac{\ell_{\sf wit} + d_{\sf qs} - 1}{k_{\calC}} \rceil$.
 $\calP$ arranges the witness $\vec{w}$ 
 and a vector of $d_{\sf qs} - 1$ random $\F$ elements $\vec{r}_{\sf qs}$,
 into a $\ell_{\sf vole} \times k_{\calC}$ matrix over $\F$ as $\mat{W}$.
@@ -590,6 +590,59 @@ From $\widetilde{\mat{Q}}$, $\calV$ can run the following checks:
 	under the gloabl key $\mat{\Delta}$. This ensures that the $\mat{Q}'$ in the previous 
 	step is indeed correct.
 \end{itemize}
+
+\subsection{Communication Cost}
+
+When using the Fiat-Shamir heuristic to transform 
+the ZK protocol in \Cref{fig:9-round-voleith-1,fig:9-round-voleith-2}
+into NIZK, some information can be excluded from the transcript.
+In particular, we can exclude all information that $\calV$ can recover 
+on its own, including $\mathsf{com}$, $\chi_1$, $\tilde{\vec{v}}$, 
+$\chi_2$, the constant coefficient of $\itmacP{z}^{(d_{\sf qs})}$,
+$\Delta'$, $\mathsf{M}[\mat{Q}']$.
+Therefore, the NIZK proof string is defined as:
+\begin{equation}
+	\pi := 
+	\left(
+	\mat{C},
+	\mat{D},
+	\tilde{\vec{u}},
+	\itmacP{z}^{(d_{\sf qs})}[1:],
+	\mat{Q}',
+	I, 
+	\mathsf{decom}_{I}
+	\right) \,.
+\end{equation}
+
+Each part is defined as:
+\begin{itemize}
+	\item $\mat{C} \in \F^{\hat{\ell}_{\sf vole} \times (n_{\calC} - k_{\calC})}$
+	\item $\mat{D} \in \F^{\ell_{\sf wit}}$
+	\item $\tilde{u} \in \F^{n_{\calC}}$
+	\item $\itmacP{z}^{(d_{\sf qs})}[1:] \in \F^{d_{\sf qs} - 1}$ (since $z = 0$)
+	\item $\mat{Q}' \in \F^{\ell_{\sf vole} \times k_{\calC}}$
+	\item $I \in [N]^{\tau}$ ($\tau = n_{\calC}$)
+	\item $\mathsf{decom}_{I} \in \{ 0, 1 \}^{\tau \cdot (k + 2) \cdot \lambda}$
+\end{itemize}
+
+Therefore, the size of $\pi$ in bits is:
+\begin{equation}\label{eq:proof-size}
+	\begin{aligned}
+		|\pi|_{\sf bits} :=
+		\bigl(
+			&\hat{\ell}_{\sf vole} \cdot (n_{\calC} - k_{\calC})
+			+ \ell_{\sf wit}
+			+ n_{\calC}
+			+ (d_{\sf qs} - 1)
+			+ \ell_{\sf vole} \cdot k_{\calC}
+		\bigr) \cdot \log(p^2) \\
+		&+ n_{\calC} \cdot k_{\sf vc}
+		+ n_{\calC} \cdot (k_{\sf vc} + 2) \cdot \secpar \,.
+	\end{aligned}
+\end{equation}
+Here $\log(p^2)$ is the bit-size of an $\F$-element,
+$k_{\sf vc}$ the bit-length of a BAVC leaf index ($N = 2^{k_{\sf vc}}$),
+and $\secpar$ the security parameter.
 
 % ===================================================================
 \section{Proving Isogeny Path Knowledge}
