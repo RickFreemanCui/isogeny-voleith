@@ -264,9 +264,9 @@ over $\F_{p^2}$; for $\ell = 2$, this becomes $3k$ constraints
 \subsection{Batch All-but-one Vector Commitment}
 
 A Batch All-but-one Vector Commitment (BAVC) allows a prover to commit
-to $\tau$ vectors of seeds, and later open all but one position per vector.
+to $\tau_{\sf vc}$ vectors of seeds, and later open all but one position per vector.
 We work over the base field $\F_{p^2}$.
-The scheme is parameterized by the number of vectors $\tau$, the vector
+The scheme is parameterized by the number of vectors $\tau_{\sf vc}$, the vector
 length $N = 2^{k_{\sf vc}}$, and a leaf commitment function
 $\mathsf{LeafCommit}: \{0,1\}^{\secpar} \to \{0,1\}^{2\secpar}$.
 
@@ -274,17 +274,17 @@ The BAVC provides three algorithms~\cite{faestv2}:
 
 \begin{description}[leftmargin=0.9em, labelsep=0.5em]
 	\item[$\mathsf{BAVC.Commit}(r) \to (\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\})$:]
-		On input a random root seed $r \in \{0,1\}^\lambda$, builds a GGM tree with $L = \tau \cdot N$ leaves.
-		For each leaf position $(i,j) \in [0,\tau) \times [0,N)$, computes
+		On input a random root seed $r \in \{0,1\}^\lambda$, builds a GGM tree with $L = \tau_{\sf vc} \cdot N$ leaves.
+		For each leaf position $(i,j) \in [0,\tau_{\sf vc}) \times [0,N)$, computes
 		$(\mathsf{sd}_{i,j}, \mathsf{com}_{i,j}) \gets \mathsf{LeafCommit}(k_\alpha, \cdot)$
 		where $k_\alpha$ is the leaf seed.
 		Hashes the per-vector commitments $\{\mathsf{com}_{i,j}\}_j$ into
-		$h_i$, then outputs the root commitment $\mathsf{com} \gets H(h_0 \| \cdots \| h_{\tau-1})$
+		$h_i$, then outputs the root commitment $\mathsf{com} \gets H(h_0 \| \cdots \| h_{\tau_{\sf vc}-1})$
 		together with full decommitment information $\mathsf{decom}$ and all
 		leaf seeds $\{\mathsf{sd}_{i,j}\}$.
 
 	\item[$\mathsf{BAVC.Open}(\mathsf{decom}, I) \to \mathsf{decom}_I$ or $\bot$:]
-		Given an index vector $I = (\delta_0, \dots, \delta_{\tau-1})$ specifying
+		Given an index vector $I = (\delta_0, \dots, \delta_{\tau_{\sf vc}-1})$ specifying
 		which leaf to hide in each vector, outputs a partial opening $\mathsf{decom}_I$
 		that contains the unrevealed leaf commitments and exactly the GGM sibling
 		seeds needed to reconstruct all other leaves.
@@ -419,7 +419,7 @@ The protocol is parameterized by:
 \begin{itemize}
 	\item A security parameter $\secpar$ and a field $\F = {GF}(p^2)$.
 	\item A pseudorandom generator $\mathsf{PRG}: \{0,1\}^{\secpar} \to \F^{\hat{\ell}_{\sf vole}}$.
-	\item A number $\tau = n_C$ of parallel all-but-one VOLE instances and
+	\item A number $\tau_{\sf vc} = n_C$ of parallel all-but-one VOLE instances and
 		a leaf count $N = 2^k$ per instance.
 	\item A systematic $[n_{\calC}, k_{\calC}, d_{\calC}]$-linear error correction code
 		$\calC \subseteq \F^{n_C}$, with encoding algorithm
@@ -445,8 +445,8 @@ The public-coin protocol proceeds in nine rounds.
 		\midrule
 		$\vec{r} \sample \{ 0,1 \}^{\secpar}$ & & \\
 		$(\mathsf{com}, \mathsf{decom}, \{\mathsf{sd}_{i,j}\}) \gets \mathsf{BAVC.Com}(\vec{r})$ & & \\
-		$\forall i \in [\tau]$, $\vec{u}_i := \sum_{j} \mathsf{PRG}(\mathsf{sd}_{i,j})$ & & \\
-		$\forall i \in [\tau]$, $\vec{v}_i := \sum_{j} (- \alpha_j) \cdot \mathsf{PRG}(\mathsf{sd}_{i,j})$ & & \\
+		$\forall i \in [\tau_{\sf vc}]$, $\vec{u}_i := \sum_{j} \mathsf{PRG}(\mathsf{sd}_{i,j})$ & & \\
+		$\forall i \in [\tau_{\sf vc}]$, $\vec{v}_i := \sum_{j} (- \alpha_j) \cdot \mathsf{PRG}(\mathsf{sd}_{i,j})$ & & \\
 		$\mat{U} := [\vec{u}_0, ..., \vec{u}_{k_{\calC}-1}]$ & & \\
 		$\widetilde{\mat{U}} := [\vec{u}_0, ..., \vec{u}_{n_{\calC}-1}]$ & & \\
 		$\mat{V} := [\vec{v}_0, ..., \vec{v}_{n_{\calC} - 1}]$ & & \\
@@ -489,7 +489,7 @@ The public-coin protocol proceeds in nine rounds.
 		$\calP$ & & $\calV$ \\
 		\midrule
 		& & $(\mathsf{com}^{\star}, \{\mathsf{sd}_{i,j}\}_{j \neq \delta_i}) := \mathsf{BAVC.Recon}({I}, \mathsf{decom}_{{I}})$ \\
-		& & $\forall i \in [\tau], \vec{q}_i := \sum_j (\alpha_{\delta_i} - \alpha_j) \cdot \mathsf{PRG}(\mathsf{sd}_{i, j})$ \\
+		& & $\forall i \in [\tau_{\sf vc}], \vec{q}_i := \sum_j (\alpha_{\delta_i} - \alpha_j) \cdot \mathsf{PRG}(\mathsf{sd}_{i, j})$ \\
 		& & $\mat{\Delta} := \mathsf{diag}(\alpha_{\delta_0}, ..., \alpha_{\delta_{n_{\calC} - 1}}) $ \\
 		& & $\widetilde{\mat{Q}} := [\vec{q}_0, ..., \vec{q}_{n_{\calC - 1}}]$ \\
 		& & $\mat{Q} := \widetilde{\mat{Q}} - [\mat{0}, \mat{C}] \cdot \mat{\Delta}  $ \\
@@ -521,7 +521,7 @@ The public-coin protocol proceeds in nine rounds.
 
 \begin{description}[leftmargin=0.9em, labelsep=0.5em]
 	\item[Commitment and subspace VOLE.]
-		$\calP$ commits to $\tau=n_C$ seed vectors with
+		$\calP$ commits to $\tau_{\sf vc}=n_C$ seed vectors with
 		$\mathsf{BAVC.Commit}$.  Each vector is converted, via the
 		SoftSpokenOT summation over $\calD$, into one raw coordinate of a
 		VOLE transcript.  The prover takes the first $k_C$ raw coordinates
@@ -562,7 +562,7 @@ The public-coin protocol proceeds in nine rounds.
 
 	\item[BAVC opening and verification.]
 		The final challenge is a vector $I := (\delta_0, ..., \delta_{n_{\calC} - 1})$
-		of $\tau$ random indices in $[N]$. 
+		of $\tau_{\sf vc}$ random indices in $[N]$. 
 		$\calP$ opens the BAVC commitment so that for $i \in [n_{\calC}]$, 
 		$\calV$ learns $\mathsf{sd}_{i, j}$ for $j \in [N], j \neq \delta_{i}$.
 		Using the same summation method, $\calV$ can compute the ``raw'' subspace VOLE 
@@ -618,11 +618,11 @@ Each part is defined as:
 \begin{itemize}
 	\item $\mat{C} \in \F^{\hat{\ell}_{\sf vole} \times (n_{\calC} - k_{\calC})}$
 	\item $\mat{D} \in \F^{\ell_{\sf wit}}$
-	\item $\tilde{u} \in \F^{n_{\calC}}$
+	\item $\tilde{\vec{u}} \in \F^{k_{\calC}}$
 	\item $\itmacP{z}^{(d_{\sf qs})}[1:] \in \F^{d_{\sf qs} - 1}$ (since $z = 0$)
 	\item $\mat{Q}' \in \F^{\ell_{\sf vole} \times k_{\calC}}$
-	\item $I \in [N]^{\tau}$ ($\tau = n_{\calC}$)
-	\item $\mathsf{decom}_{I} \in \{ 0, 1 \}^{\tau \cdot (k + 2) \cdot \lambda}$
+	\item $I \in [N]^{\tau_{\sf vc}}$ ($\tau_{\sf vc} = n_{\calC}, N = 2^{k_{\sf vc}}$)
+	\item $\mathsf{decom}_{I} \in \{ 0, 1 \}^{\tau_{\sf vc} \cdot (k_{\sf vc} + 2) \cdot \lambda}$
 \end{itemize}
 
 Therefore, the size of $\pi$ in bits is:
@@ -632,7 +632,7 @@ Therefore, the size of $\pi$ in bits is:
 		\bigl(
 			&\hat{\ell}_{\sf vole} \cdot (n_{\calC} - k_{\calC})
 			+ \ell_{\sf wit}
-			+ n_{\calC}
+			+ k_{\calC}
 			+ (d_{\sf qs} - 1)
 			+ \ell_{\sf vole} \cdot k_{\calC}
 		\bigr) \cdot \log(p^2) \\
@@ -703,13 +703,13 @@ rather than independently benchmarked.
 	\caption{Comparison of proof systems for proving isogeny path knowledge
 		($\lambda = 128$, $\ell = 2$, $k = 216$ minimal-security path length
 		over p434 / $\F_{p^2}$, except where noted).
-		$\tau$ = setup type (T = transparent, none = no setup).
+		$\tau_{\sf vc}$ = setup type (T = transparent, none = no setup).
 		Soundness: E = exact, R = relaxed.
 		``proj.'' = projected from constraint counts.}
 	\label{tab:isogeny-proof-systems}
 	\begin{tabular}{c c c c c c c}
 		\toprule
-		System & P (ms) & V (ms) & $|\pi|$ (kB) & $\tau$ & Sound. & Ref. \\
+		System & P (ms) & V (ms) & $|\pi|$ (kB) & $\tau_{\sf vc}$ & Sound. & Ref. \\
 		\midrule
 		\multicolumn{7}{c}{\textit{Tailor-made protocols}} \\
 		Secuer{}PoK
@@ -803,22 +803,162 @@ $\lambda = 128$.
 	pending.}
 \end{table}
 
+
+
+\subsection{VOLEitH ZK for Proving Isogeny Path}
+
+We discussed the proof size of the VOLEitH proof system of \Cref{sec:voleith} in \Cref{eq:proof-size}.
+To get a closed-form formula, we need to determine the following variables:
+\begin{itemize}
+	\item The security parameter $\secpar$,
+	\item The code-parameters $(n_{\calC}, k_{\calC}, d_{\calC})$,
+	\item The depth of small trees in BAVC $k_{\sf vc}$,
+	\item The witness length $\ell_{\sf wit}$, and
+	\item The maximum total degree of the polynomial system $d_{\sf qs}$.
+\end{itemize}
+
+First of all, the BAVC algorithm needs $[2^{k_{\sf vc}}]$ to be an efficiently
+enumerable range, so we set $k_{\sf vc} \in [8, 12]$ in practice.
+The code parameters $(n_{\calC}, k_{\calC})$ are chosen to minimize $|\pi|$
+subject to the subspace VOLE security constraint
+$d_{\calC} \cdot k_{\sf vc} \geq \secpar$, with
+$d_{\calC} = n_{\calC} - k_{\calC} + 1$ for the Reed--Solomon code.
+We further apply the proof-of-work (PoW) optimization from
+FAEST~v2~\cite{faestv2}: $\calP$ repeatedly hashes the protocol transcript 
+for an index vector $I$ with $w$ trailing zero bits, 
+relaxing the security requirement to
+$d_{\calC} \cdot k_{\sf vc} \geq \secpar - w$.  We fix $w = 8$ throughout.
+For each $k_{\sf vc}$ we then search over $k_{\calC} \in [1, \ell_{\sf wit}
++ d_{\sf qs}]$ and set $n_{\calC} = k_{\calC} - 1 + \lceil (\secpar - w) /
+k_{\sf vc} \rceil$ (the minimal $n_{\calC}$ satisfying the constraint).
+Finally, the choice of canonical or classical modular polynomial fixes
+$\ell_{\sf wit}$ and $d_{\sf qs}$.
+
 \medskip\noindent
-\textbf{Implications for VOLEitH.}
-The VOLEitH proof system of \Cref{sec:voleith} scales with the number of
-degree-2 constraints $t$ and the witness size $\ell_{\sf wit}$.
-With canonical modular polynomials at $\ell = 2$ over $\F_{p^2}$, we have
-$t = 3k = 768$ constraints and $\ell_{\sf wit} = 3k+1 = 769$ witness
-elements for $\lambda = 128$.
-Using $\ell = 13$ reduces the witness to $701$ elements but increases the
-per-step constraint count. The optimal choice depends on the concrete
-VOLEitH parameters (code $\calC$, VOLE batch size $\tau$, etc.),
-which we instantiate in the next subsection.
+\textbf{Witness and constraint degree.}
+The VOLEitH proof system of \Cref{sec:voleith} directly supports degree-$d_{\sf qs}$
+polynomial constraints without decomposing them into degree-2 gates.
+We therefore encode each modular polynomial check as a single constraint over a
+minimal witness. The two approaches are:
 
-%% TODO: Instantiate the 9-round VOLEitH framework for the isogeny path problem.
-%% Compute concrete VOLEitH parameters: tau, N, l_vole, and estimate prover/verifier
-%% times and proof sizes based on the constraint counts above.
+\begin{enumerate}[label=(\roman*)]
+	\item \textbf{Classical $\polyrel_2$.}
+		The witness is $\vec{w} = (j_1, \dots, j_{k-1}) \in \F^{k-1}$.
+		For each step $i \in [1, k]$, the constraint
+		$f_i(\vec{w}) = \polyrel_2(j_{i-1}, j_i)$ is a degree-4 bivariate
+		polynomial (see \Cref{eq:modpoly2}).
+		Thus $\ell_{\sf wit} = k-1$, $d_{\sf qs} = 4$, $t = k$.
 
+	\item \textbf{Canonical $\polyrel_{\ell}^c$ ($\ell \in \{2,3,5,7,13\}$).}
+		The witness is
+		$\vec{w} = (j_1, \dots, j_{k-1}, X_1, \dots, X_k) \in \F^{2k-1}$.
+		For each step $i \in [1, k]$, the two constraints
+		(\Cref{eq:canonical-two-eq}) are degree-$(\ell+1)$ \emph{univariate}
+		polynomials in $X_i$ with a single cross-term $j X_i$ (or $j X_i^{\ell}$).
+		Thus $\ell_{\sf wit} = 2k-1$, $d_{\sf qs} = \ell+1$, $t = 2k$.
+\end{enumerate}
+
+\Cref{tab:wit-deg-formulas} summarizes the closed-form formulas.
+Note that $\ell_{\sf wit}$ counts only the natural witness elements; the public
+inputs $j_0, j_k$ are handled separately by the verifier.
+
+\begin{table}[H]
+	\centering
+	\caption{Closed-form formulas for $\ell_{\sf wit}$, $d_{\sf qs}$, and $t$
+		for an isogeny path of length $k$ with degree $\ell$.
+		$f_i$ denotes a single constraint of total degree $d_{\sf qs}$.}
+	\label{tab:wit-deg-formulas}
+	\begin{tabular}{c c c c c c}
+		\toprule
+		Polynomial & $\ell$ & $\ell_{\sf wit}$ & $d_{\sf qs}$ & $t$ & Constraint type \\
+		\midrule
+		Classical $\polyrel_2$
+			& $2$   & $k-1$   & $4$       & $k$  & bivar.\ degree $4$ \\
+		Canonical $\polyrel_{\ell}^c$
+			& $2$   & $2k-1$  & $3$       & $2k$ & univar.\ $+$ cross-term \\
+			& $3$   & $2k-1$  & $4$       & $2k$ & univar.\ $+$ cross-term \\
+			& $5$   & $2k-1$  & $6$       & $2k$ & univar.\ $+$ cross-term \\
+			& $7$   & $2k-1$  & $8$       & $2k$ & univar.\ $+$ cross-term \\
+			& $13$  & $2k-1$  & $14$      & $2k$ & univar.\ $+$ cross-term \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\medskip\noindent
+\textbf{Impact on proof size.}
+From \Cref{eq:proof-size}, the field-element contribution to the proof size is
+dominated by terms proportional to $\ell_{\sf wit}$ (the matrix $\mat{D}$
+contributes $\ell_{\sf wit}$ elements, and $\mat{Q}'$ contributes
+$\approx \ell_{\sf wit}$ elements through $\ell_{\sf vole} = \lceil(\ell_{\sf wit}
++ d_{\sf qs} - 1)/k_{\calC}\rceil$).
+The term $(d_{\sf qs}-1)$ appears only once (the non-constant coefficients of
+$\itmacP{z}^{(d_{\sf qs})}$), so increasing $d_{\sf qs}$ is inexpensive.
+The dominant metric is therefore $\ell_{\sf wit} + d_{\sf qs}$, with $\ell_{\sf wit}$
+weighted roughly $2\times$ more heavily.
+
+\Cref{tab:wit-deg-concrete} instantiates the formulas for $\lambda = 128$
+($k = \lceil 2\lambda / \log_2 \ell \rceil$).
+
+\begin{table}[H]
+	\centering
+	\caption{Concrete values at $\lambda = 128$. $k$ is the minimal path length.}
+	\label{tab:wit-deg-concrete}
+	\begin{tabular}{c c c c c c}
+		\toprule
+		$\ell$ & $k$ & Encoding & $\ell_{\sf wit}$ & $d_{\sf qs}$ &
+			$\ell_{\sf wit} + d_{\sf qs}$ \\
+		\midrule
+		2  & 256 & Classical $\polyrel_2$  & 255 & 4  & {\bf 259} \\
+		2  & 256 & Canonical $\polyrel_2^c$ & 511 & 3  & 514 \\
+		3  & 162 & Canonical $\polyrel_3^c$ & 323 & 4  & 327 \\
+		5  & 111 & Canonical $\polyrel_5^c$ & 221 & 6  & 227 \\
+		7  & 92  & Canonical $\polyrel_7^c$ & 183 & 8  & 191 \\
+		13 & 70  & Canonical $\polyrel_{13}^c$ & 139 & 14 & {\bf 153} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+The classical $\polyrel_2$ gives the smallest $\ell_{\sf wit}$ ($255$) due to
+its compact witness, but requires evaluating a degree-4 \emph{bivariate} polynomial
+$\polyrel_2(j_{i-1}, j_i)$ over IT-MACs --- the monomial $j_{i-1}^2 j_i^2$
+necessitates repeated IT-MAC multiplications of degree-1 authenticated values,
+each of which squares the polynomial degree.
+The canonical polynomials, in contrast, only need \emph{univariate} powers
+$X_i^a$ (computed by repeated self-multiplication) plus a single cross-term
+$j_{i-1}X_i$ or $j_i X_i^{\ell}$, making the constraint evaluation structurally
+simpler despite the formally higher $d_{\sf qs}$.
+Larger $\ell$ further reduces $\ell_{\sf wit} + d_{\sf qs}$ (from $514$ at
+$\ell=2$ to $153$ at $\ell=13$), at the cost of computing higher powers of
+$X_i$ within each constraint.
+
+For the remainder of this section we adopt the \textbf{canonical direct encoding}
+with $\ell = 2$ as the baseline ($\ell_{\sf wit} = 2k-1 = 511$,
+$d_{\sf qs} = 3$, $t = 2k = 512$).
+
+\begin{table}[H]
+	\centering
+	\caption{VOLEitH proof sizes for isogeny path knowledge at $\lambda = 128$
+		(p434, $\F_{p^2}$). Fast: $k_{\sf vc}=8$, Small: $k_{\sf vc}=12$.
+		Both use PoW with $w = 8$. The code $[n_{\calC}, k_{\calC}, d_{\calC}]$
+		is the optimal Reed--Solomon code found by the search of
+		\Cref{sec:isogeny-proof}.}
+	\label{tab:voleith-proof-sizes}
+	\begin{tabular}{c c c c c c c c c}
+		\toprule
+		$\ell$ & Enc. & $k$ & $\ell_{\sf wit}$ & $d_{\sf qs}$ &
+		\multicolumn{2}{c}{Fast ($k_{\sf vc}=8$)} &
+		\multicolumn{2}{c}{Small ($k_{\sf vc}=12$)} \\
+		& & & & & Code & $|\pi|$ & Code & $|\pi|$ \\
+		\midrule
+		$2$ & classical & $256$ & $255$ & $4$ & $[66,52,15]$ & $87$\,kB & $[52,43,10]$ & $83$\,kB \\
+		$2$ & canonical & $256$ & $511$ & $3$ & $[100,86,15]$ & $153$\,kB & $[66,57,10]$ & $147$\,kB \\
+		$3$ & canonical & $162$ & $323$ & $4$ & $[80,66,15]$ & $105$\,kB & $[50,41,10]$ & $101$\,kB \\
+		$5$ & canonical & $111$ & $221$ & $6$ & $[71,57,15]$ & $79$\,kB & $[47,38,10]$ & $75$\,kB \\
+		$7$ & canonical & $92$ & $183$ & $8$ & $[62,48,15]$ & $69$\,kB & $[47,38,10]$ & $65$\,kB \\
+		$13$ & canonical & $70$ & $139$ & $14$ & $[52,38,15]$ & $58$\,kB & $[40,31,10]$ & $55$\,kB \\
+		\bottomrule
+	\end{tabular}
+\end{table}
 
 % ===================================================================
 \section{Security Analysis}
