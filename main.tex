@@ -619,7 +619,7 @@ Each part is defined as:
 	\item $\mat{C} \in \F^{\hat{\ell}_{\sf vole} \times (n_{\calC} - k_{\calC})}$
 	\item $\mat{D} \in \F^{\ell_{\sf wit}}$
 	\item $\tilde{\vec{u}} \in \F^{k_{\calC}}$
-	\item $\itmacP{z}^{(d_{\sf qs})}[1:] \in \F^{d_{\sf qs} - 1}$ (since $z = 0$)
+	\item $\itmacP{z}^{(d_{\sf qs})}[0:d_{\sf qs}] \in \F^{d_{\sf qs}}$ (leading coeff.\ $z = 0$ omitted)
 	\item $\mat{Q}' \in \F^{\ell_{\sf vole} \times k_{\calC}}$
 	\item $I \in [N]^{\tau_{\sf vc}}$ ($\tau_{\sf vc} = n_{\calC}, N = 2^{k_{\sf vc}}$)
 	\item $\mathsf{decom}_{I} \in \{ 0, 1 \}^{\tau_{\sf vc} \cdot (k_{\sf vc} + 2) \cdot \lambda}$
@@ -633,7 +633,7 @@ Therefore, the size of $\pi$ in bits is:
 			&\hat{\ell}_{\sf vole} \cdot (n_{\calC} - k_{\calC})
 			+ \ell_{\sf wit}
 			+ k_{\calC}
-			+ (d_{\sf qs} - 1)
+			+ d_{\sf qs}
 			+ \ell_{\sf vole} \cdot k_{\calC}
 		\bigr) \cdot \log(p^2) \\
 		&+ n_{\calC} \cdot k_{\sf vc}
@@ -956,6 +956,34 @@ $d_{\sf qs} = 3$, $t = 2k = 512$).
 		$5$ & canonical & $111$ & $221$ & $6$ & $[71,57,15]$ & $79$\,kB & $[47,38,10]$ & $75$\,kB \\
 		$7$ & canonical & $92$ & $183$ & $8$ & $[62,48,15]$ & $69$\,kB & $[47,38,10]$ & $65$\,kB \\
 		$13$ & canonical & $70$ & $139$ & $14$ & $[52,38,15]$ & $58$\,kB & $[40,31,10]$ & $55$\,kB \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+To assess the impact of the prime size, \Cref{tab:voleith-proof-sizes-p252}
+repeats the analysis with a smaller, $252$-bit prime (e.g.\
+$p = 2^{125} \cdot 3^{79} \cdot 5 - 1$, of the same SIKE-family form as p434).
+All other parameters ($\lambda = 128$, $w = 8$, isogeny path lengths) are unchanged.
+
+\begin{table}[H]
+	\centering
+	\caption{VOLEitH proof sizes for isogeny path knowledge at $\lambda = 128$
+		with a $252$-bit prime ($\F_{p^2}$ element size $\approx 504$ bits).
+		Fast: $k_{\sf vc}=8$, Small: $k_{\sf vc}=12$, $w = 8$.}
+	\label{tab:voleith-proof-sizes-p252}
+	\begin{tabular}{c c c c c c c c c}
+		\toprule
+		$\ell$ & Enc. & $k$ & $\ell_{\sf wit}$ & $d_{\sf qs}$ &
+		\multicolumn{2}{c}{Fast ($k_{\sf vc}=8$)} &
+		\multicolumn{2}{c}{Small ($k_{\sf vc}=12$)} \\
+		& & & & & Code & $|\pi|$ & Code & $|\pi|$ \\
+		\midrule
+		$2$ & classical & $256$ & $255$ & $4$ & $[57,43,15]$ & $55$\,kB & $[46,37,10]$ & $53$\,kB \\
+		$2$ & canonical & $256$ & $511$ & $3$ & $[71,57,15]$ & $95$\,kB & $[52,43,10]$ & $92$\,kB \\
+		$3$ & canonical & $162$ & $323$ & $4$ & $[61,47,15]$ & $66$\,kB & $[50,41,10]$ & $63$\,kB \\
+		$5$ & canonical & $111$ & $221$ & $6$ & $[52,38,15]$ & $50$\,kB & $[42,33,10]$ & $48$\,kB \\
+		$7$ & canonical & $92$ & $183$ & $8$ & $[52,38,15]$ & $44$\,kB & $[33,24,10]$ & $42$\,kB \\
+		$13$ & canonical & $70$ & $139$ & $14$ & $[52,38,15]$ & $37$\,kB & $[31,22,10]$ & $35$\,kB \\
 		\bottomrule
 	\end{tabular}
 \end{table}

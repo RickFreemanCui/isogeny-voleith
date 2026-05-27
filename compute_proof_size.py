@@ -3,7 +3,7 @@
 Compute VOLEitH proof size for proving isogeny path knowledge.
 
 Formula (eq:proof-size from main.tex):
-  |π|_bits = [ ℓ̂_vole·(n_C - k_C) + ℓ_wit + k_C + (d_qs - 1) + ℓ_vole·k_C ] · log(p²)
+  |π|_bits = [ ℓ̂_vole·(n_C - k_C) + ℓ_wit + k_C + d_qs + ℓ_vole·k_C ] · log(p²)
            + n_C · k_vc
            + n_C · (k_vc + 2) · λ
 
@@ -26,12 +26,13 @@ from dataclasses import dataclass
 SECPAR = 128
 W      = 8    # proof-of-work grinding bits (2^w hashes)
 
-# SIKE primes
+# SIKE primes (p = 2^a · 3^b · f - 1)
 PRIMES = {
-    "p434": {"bits": 434, "p": 2**216 * 3**137 - 1},
-    "p503": {"bits": 503, "p": 2**250 * 3**159 - 1},
-    "p610": {"bits": 610, "p": 2**305 * 3**192 - 1},
-    "p751": {"bits": 751, "p": 2**372 * 3**239 - 1},
+    "p252": {"bits": 252, "p": 2**125 * 3**79  * 5  - 1},   # ~252-bit, ~SIKE-p252 class
+    "p434": {"bits": 434, "p": 2**216 * 3**137       - 1},
+    "p503": {"bits": 503, "p": 2**250 * 3**159       - 1},
+    "p610": {"bits": 610, "p": 2**305 * 3**192       - 1},
+    "p751": {"bits": 751, "p": 2**372 * 3**239       - 1},
 }
 
 
@@ -55,6 +56,16 @@ CONFIGS_P434 = [
     IsogenyConfig(r"$\ell=5$, canonical $\Phi_5^c$",   5,  111, 221,  6, 222, "canonical", "p434"),
     IsogenyConfig(r"$\ell=7$, canonical $\Phi_7^c$",   7,   92, 183,  8, 184, "canonical", "p434"),
     IsogenyConfig(r"$\ell=13$, canonical $\Phi_{13}^c$", 13, 70, 139, 14, 140, "canonical", "p434"),
+]
+
+# p252 — teammate asks: classical ℓ=2 proof at 252-bit prime
+CONFIGS_P252 = [
+    IsogenyConfig(r"$\ell=2$, classical $\Phi_2$",     2,  256, 255,  4, 256, "classical", "p252"),
+    IsogenyConfig(r"$\ell=2$, canonical $\Phi_2^c$",   2,  256, 511,  3, 512, "canonical", "p252"),
+    IsogenyConfig(r"$\ell=3$, canonical $\Phi_3^c$",   3,  162, 323,  4, 324, "canonical", "p252"),
+    IsogenyConfig(r"$\ell=5$, canonical $\Phi_5^c$",   5,  111, 221,  6, 222, "canonical", "p252"),
+    IsogenyConfig(r"$\ell=7$, canonical $\Phi_7^c$",   7,   92, 183,  8, 184, "canonical", "p252"),
+    IsogenyConfig(r"$\ell=13$, canonical $\Phi_{13}^c$", 13, 70, 139, 14, 140, "canonical", "p252"),
 ]
 
 # ℓ=2,3,5 also benchmarked at p503 in prior work
@@ -91,7 +102,7 @@ def optimise_code(cfg: IsogenyConfig, secpar: int, k_vc: int, w: int = 0):
         fe_terms = (ell_hat_vole * (n_C - k_C)
                     + cfg.ell_wit
                     + k_C
-                    + (cfg.d_qs - 1)
+                    + cfg.d_qs
                     + ell_vole * k_C)
         field_bits = fe_terms * cfg.log_p2
 
@@ -230,9 +241,13 @@ if __name__ == "__main__":
     secpar = SECPAR
     w = W
 
+    # ── p434 ──────────────────────────────────────────────────
     setup_configs(CONFIGS_P434, secpar)
-
-    print_table(CONFIGS_P434, 8, "FAST", w)
-    print_table(CONFIGS_P434, 12, "SMALL", w)
-
+    print_table(CONFIGS_P434, 8, "FAST (p434)", w)
+    print_table(CONFIGS_P434, 12, "SMALL (p434)", w)
     latex_table(CONFIGS_P434, secpar, w)
+
+    # ── p252 ──────────────────────────────────────────────────
+    setup_configs(CONFIGS_P252, secpar)
+    print_table(CONFIGS_P252, 8, "FAST (p252)", w)
+    print_table(CONFIGS_P252, 12, "SMALL (p252)", w)
