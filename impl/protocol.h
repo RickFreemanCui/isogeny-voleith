@@ -12,9 +12,9 @@
 /* Proof layout offsets */
 #define C_SIZE         (L_HAT_VOLE * (N_C - K_C))
 /* Proof size: FE terms + bitstring overhead */
-#define PROOF_FE_SIZE  (C_SIZE + L_WIT + K_C + D_QS + L_VOLE*K_C)
+#define PROOF_FE_SIZE  (C_SIZE + L_WIT + K_C + (D_QS - 1) + L_VOLE*K_C)
 /* bitstring: I (N_C * 4 bytes) + opening + iv */
-#define PROOF_BS_SIZE  (BAVC_TAU * sizeof(uint32_t) + sizeof(bavc_opening_t) + sizeof(bavc_iv_t) + sizeof(bavc_commit_t))
+#define PROOF_BS_SIZE  (BAVC_TAU * sizeof(uint32_t) + sizeof(bavc_opening_t) + sizeof(bavc_iv_t) + sizeof(bavc_commit_t) + sizeof(uint32_t))
 #define PROOF_BYTES    (PROOF_FE_SIZE * FP2_BYTES + PROOF_BS_SIZE + 4096)
 
 /* Generate a valid isogeny path witness (j_1..j_{k-1}) from j_0.

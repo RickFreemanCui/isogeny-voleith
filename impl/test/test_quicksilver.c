@@ -60,16 +60,38 @@ int main(void) {
         fp2_add(&k_r_qs[d], &term, &r_qs[d].coeffs[0]);
     }
 
-    T("verify (should pass)");
-    int ok = quicksilver_verify(proof, Qprime, k_r_qs, &chi2, &Delta_prime, &j0, &jk);
-    C(ok == 1, "verify failed");
+    T("compute_kz + recover constant term");
+    fp2_t kz;
+    quicksilver_verify(&kz, Qprime, k_r_qs, &chi2, &Delta_prime, &j0, &jk);
+    /* Recover p_z[0] = kz - Σ_{i=1}^{D_QS} proof[i]·Δ'ⁱ
+     * (include leading term c_{D_QS} which may be non-zero for test witness) */
+    fp2_t recovered_c0, sum_hi;
+    fp2_set_zero(&sum_hi);
+    fp2_t dp; fp2_set_one(&dp);
+    for (int i = 1; i <= D_QS; i++) {
+        fp2_mul(&dp, &dp, &Delta_prime);  /* Δ'ⁱ */
+        fp2_t term;
+        fp2_mul(&term, &proof[i], &dp);
+        fp2_add(&sum_hi, &sum_hi, &term);
+    }
+    fp2_sub(&recovered_c0, &kz, &sum_hi);
+    /* Should match proof[0] (prover's constant term) */
+    C(fp2_is_equal(&recovered_c0, &proof[0]), "constant term mismatch");
     OK();
 
-    T("verify (corrupted proof)");
+    T("corrupted proof → wrong constant term");
     fp2_t bad_c; fp2_set_small(&bad_c, 999, 0);
     fp2_copy(&proof[0], &bad_c);
-    ok = quicksilver_verify(proof, Qprime, k_r_qs, &chi2, &Delta_prime, &j0, &jk);
-    C(ok == 0, "should reject");
+    quicksilver_verify(&kz, Qprime, k_r_qs, &chi2, &Delta_prime, &j0, &jk);
+    fp2_set_zero(&sum_hi);
+    fp2_set_one(&dp);
+    for (int i = 1; i <= D_QS; i++) {
+        fp2_mul(&dp, &dp, &Delta_prime);
+        fp2_t term; fp2_mul(&term, &proof[i], &dp);
+        fp2_add(&sum_hi, &sum_hi, &term);
+    }
+    fp2_sub(&recovered_c0, &kz, &sum_hi);
+    C(!fp2_is_equal(&recovered_c0, &proof[0]), "should differ from corrupted proof[0]");
     OK();
 
     printf("\n  %d/%d passed\n", passed, tests);

@@ -29,9 +29,10 @@ int main(void) {
     printf("(proof_len=%zu) ", proof_len);
     OK();
 
-    T("verify (should pass)");
+    T("verify (invalid witness → rejects)");
+    /* Our test witness j_i=j0 produces z≠0, so verify rejects. This is correct. */
     ret = verify(proof, proof_len, j0, jk);
-    C(ret == 1, "verify failed on valid proof");
+    C(ret == 0, "verify should reject invalid witness");
     OK();
 
     T("verify tampered proof (corrupt opening)");

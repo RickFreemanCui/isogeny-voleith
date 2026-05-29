@@ -8,13 +8,14 @@
 #define BAVC_H
 
 #include "params.h"
+#include "aes128.h"
 #include <stdint.h>
 
 #define BAVC_TAU      N_C
 #define BAVC_N        N_LEAVES
 #define BAVC_KVC      K_VC
 
-/* A leaf hash: 2 * SECPAR bits = 32 bytes */
+/* Leaf commitment: 2*secpar = 32 bytes (derived via AES-128-CTR on leaf seed) */
 #define LEAF_HASH_BYTES 32
 
 /* Opening size: TAU leaf hashes + TAU * k_vc sibling seeds */

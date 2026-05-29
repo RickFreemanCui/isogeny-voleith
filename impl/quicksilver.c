@@ -123,7 +123,7 @@ void quicksilver_prove(fp2_t proof_out[D_QS + 1],
     free(wmacs);
 }
 
-int quicksilver_verify(const fp2_t proof_in[D_QS],
+void quicksilver_verify(fp2_t *k_z_out,
                        const fp2_t *Qmat,
                        const fp2_t *krqs,
                        const fp2_t *ch2,
@@ -153,17 +153,7 @@ int quicksilver_verify(const fp2_t proof_in[D_QS],
     }
 
     itmac_key_t kl; itmac_key_lift(&kl,krqs,D_QS-1,Dp);
-    fp2_add(&kz,&kz,&kl);
+    fp2_add(k_z_out,&kz,&kl);
 
-    fp2_t pe; fp2_set_zero(&pe);
-    fp2_t dp; fp2_set_one(&dp);
-    for(int i=0;i<=D_QS;i++){
-        fp2_t t; fp2_mul(&t,&proof_in[i],&dp);
-        fp2_add(&pe,&pe,&t);
-        fp2_mul(&dp,&dp,Dp);
-    }
-
-    int ok = fp2_is_equal(&pe,&kz);
     free(kw);
-    return ok;
 }

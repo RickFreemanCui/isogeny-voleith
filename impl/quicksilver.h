@@ -15,13 +15,16 @@ void quicksilver_prove(fp2_t proof_out[D_QS + 1],
                        const fp2_t *chi2,
                        const fp2_t *j0, const fp2_t *jk);
 
-/* Verifier: checks p_z(Δ') == k_z */
-int quicksilver_verify(const fp2_t proof_in[D_QS],
-                       const fp2_t *Qprime,
-                       const fp2_t *k_r_qs,
-                       const fp2_t *chi2,
-                       const fp2_t *Delta_prime,
-                       const fp2_t *j0, const fp2_t *jk);
+/* Verifier: outputs k_z = Σ χ₂ⁱ·f_i(k_w) + Lift(k_r_qs).
+ * Caller recovers the constant term of p_z via:
+ *   c_0 = k_z - Σ_{i=1}^{D_QS-1} sent_coeffs[i]·Δ'ⁱ
+ * (leading c_{D_QS}=z=0 for valid witness, not needed). */
+void quicksilver_verify(fp2_t *k_z_out,
+                        const fp2_t *Qprime,
+                        const fp2_t *k_r_qs,
+                        const fp2_t *chi2,
+                        const fp2_t *Delta_prime,
+                        const fp2_t *j0, const fp2_t *jk);
 
 /* Exposed for testing */
 void qs_phi2_itmac(itmac_poly_t *res, const itmac_poly_t *X, const itmac_poly_t *Y);

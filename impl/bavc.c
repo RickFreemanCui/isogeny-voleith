@@ -6,36 +6,49 @@
  * Internal nodes are indices 0 .. N-2.
  */
 #include "bavc.h"
+#include "aes128.h"
 #include "hash.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-/* ── GGM helpers ────────────────────────────────────────────── */
+/* ── GGM helpers (AES-128-CTR) ──────────────────────────────── */
 
+/* AES-128-CTR block encryption with domain separation */
+static void aes_ctr_block(uint8_t out[AES128_BLOCK],
+                          const uint8_t key[AES128_KEY_BYTES],
+                          const uint8_t iv[AES128_KEY_BYTES],
+                          uint32_t domain, uint8_t ctr)
+{
+    uint8_t buf[AES128_BLOCK];
+    for (int i = 0; i < AES128_BLOCK; i++) buf[i] = iv[i];
+    /* mix domain into first bytes */
+    buf[0] ^= (uint8_t)(domain);
+    buf[1] ^= (uint8_t)(domain >> 8);
+    buf[2] ^= (uint8_t)(domain >> 16);
+    buf[3] ^= (uint8_t)(domain >> 24);
+    buf[12] ^= ctr;
+    aes128_encrypt_block(out, buf, key);
+}
+
+/* GGM expansion: parent seed -> two child seeds */
 static void expand_node(uint8_t left[SECPAR_BYTES], uint8_t right[SECPAR_BYTES],
                         const uint8_t seed[SECPAR_BYTES],
                         const uint8_t iv[SECPAR_BYTES],
                         uint32_t tree_idx, uint32_t node_idx)
 {
-    uint32_t tweak = (tree_idx << 20) | node_idx;
-    uint8_t buf[2 * SECPAR_BYTES];
-    hash_xof(buf, sizeof(buf), seed, SECPAR_BYTES, &tweak, sizeof(tweak));
-    for (int k = 0; k < SECPAR_BYTES; k++) {
-        left[k]  = buf[k] ^ iv[k];
-        right[k] = buf[k + SECPAR_BYTES] ^ iv[k];
-    }
+    uint32_t domain = (tree_idx << 20) | node_idx;
+    aes_ctr_block(left,  seed, iv, domain, 0);
+    aes_ctr_block(right, seed, iv, domain, 1);
 }
 
+/* Leaf commitment: 32 bytes via AES-128-CTR(leaf_seed, iv, ctr=0,1) */
 static void leaf_hash_fn(uint8_t out[LEAF_HASH_BYTES],
                          const uint8_t seed[SECPAR_BYTES],
                          const uint8_t iv[SECPAR_BYTES])
 {
-    hash_state_t st;
-    hash_init(&st);
-    hash_update(&st, iv, SECPAR_BYTES);
-    hash_update(&st, seed, SECPAR_BYTES);
-    hash_final(&st, out);
+    aes_ctr_block(out,                    seed, iv, 0xFFFFFFFF, 0);
+    aes_ctr_block(out + AES128_BLOCK,     seed, iv, 0xFFFFFFFF, 1);
 }
 
 static void tree_root_seed(uint8_t root[SECPAR_BYTES],
