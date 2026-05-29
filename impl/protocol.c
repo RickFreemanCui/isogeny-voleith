@@ -2,12 +2,16 @@
  * protocol.c -- 9-round VOLEitH NIZK with Fiat-Shamir + implicit verification
  *
  * Four FS hash points (domain bytes 0x08..0x0b):
- *   chi1  = SHAKE128(com* || C || iv || 0x08)
- *   chi2  = SHAKE128(chi1 || u_tilde || D || 0x09)
- *   Delta'= SHAKE128(chi2 || pz_coeffs || 0x0a)
- *   I     = SHAKE128(Delta' || Q' || counter || 0x0b)   [grind for w trailing 0s]
+ *   chi1   = SHAKE128(com* || C || iv || 0x08)
+ *   chi2   = SHAKE128(chi1 || u_tilde || D || 0x09)
+ *   Delta' = SHAKE128(chi2 || pz_middle[1..D_QS-1] || 0x0a)
+ *   I      = SHAKE128(Delta' || Q' || M[Q'] || pz_c0 || counter || 0x0b)
+ *            [grind counter until I has w trailing zero bits]
  *
- * Verification is implicit: all checks boil down to recomputing I and comparing.
+ * Verification is implicit — the verifier assumes each check equation holds
+ * to recover missing values (com*, pz_c0, M[Q']), feeds them into FS hashing,
+ * and compares the recomputed I against the I in the proof. PoW on I is also
+ * verified.
  */
 #include "protocol.h"
 #include "prg.h"
